@@ -1,0 +1,32 @@
+-- Table: projects
+CREATE TABLE projects (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    labels JSONB, -- lưu labels dạng JSON (giống CVAT)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: dataset_versions
+CREATE TABLE dataset_versions (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    description TEXT,
+    storage_path TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    label_type VARCHAR(50) DEFAULT 'unlabeled' NOT NULL,
+
+    CONSTRAINT fk_project
+        FOREIGN KEY (project_id)
+        REFERENCES projects(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_project_version_name
+        UNIQUE (project_id, version, name)
+);
+
+-- Index để query nhanh theo project
+CREATE INDEX idx_dataset_project_id
+ON dataset_versions(project_id);
