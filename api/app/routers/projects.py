@@ -1,31 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from ..database import get_db
-from ..models import projects as models
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from ..database import get_db
+from ..services import projects as service
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+
 class ProjectCreate(BaseModel):
     name: str
-    labels: List[Dict[str, Any]] # Nhãn dạng JSON giống CVAT
+    labels: List[Dict[str, Any]]
+
 
 @router.post("/")
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    db_project = models.Project(name=project.name, labels=project.labels)
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
+    return service.create_project(db, body.name, body.labels)
+
 
 @router.get("/")
-def get_all_projects(db: Session = Depends(get_db)):
-    return db.query(models.Project).all()
+def list_projects(db: Session = Depends(get_db)):
+    return service.list_projects(db)
+
 
 @router.get("/{project_id}")
-def get_project_details(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
+def get_project(project_id: int, db: Session = Depends(get_db)):
+    return service.get_project(db, project_id)

@@ -4,7 +4,8 @@
       "Bash(Get-ChildItem -Path \"D:\\\\python\\\\mlops\" -Recurse -Force)",
       "Bash(Select-Object -Property FullName)",
       "Bash(Sort-Object FullName)",
-      "Bash(ConvertTo-Json)"
+      "Bash(ConvertTo-Json)",
+      "Bash(Get-Content *)"
     ]
   }
 }

@@ -1,8 +1,8 @@
--- Table: projects
+﻿-- Table: projects
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    labels JSONB, -- lưu labels dạng JSON (giống CVAT)
+    labels JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -27,6 +27,31 @@ CREATE TABLE dataset_versions (
         UNIQUE (project_id, version, name)
 );
 
--- Index để query nhanh theo project
-CREATE INDEX idx_dataset_project_id
-ON dataset_versions(project_id);
+-- Table: checkpoints
+CREATE TABLE checkpoints (
+    id SERIAL PRIMARY KEY,
+    project_id INT,
+    experiment_id INT,
+    name VARCHAR(255) NOT NULL,
+    source VARCHAR(50) DEFAULT 'pretrained' NOT NULL, -- 'pretrained' (model tải về/khởi tạo) hoặc 'experiment' (model tự train)
+    file_path TEXT NOT NULL,
+    metrics JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_checkpoint_project
+        FOREIGN KEY (project_id)
+        REFERENCES projects(id)
+        ON DELETE CASCADE
+
+    -- Nếu bạn tạo bảng 'experiments', hãy uncomment đoạn dưới đây:
+    -- CONSTRAINT fk_checkpoint_experiment
+    --     FOREIGN KEY (experiment_id)
+    --     REFERENCES experiments(id)
+    --     ON DELETE SET NULL
+);
+
+-- Index query
+CREATE INDEX idx_dataset_project_id ON dataset_versions(project_id);
+CREATE INDEX idx_labels_project_id ON labels(project_id);
+CREATE INDEX idx_checkpoints_project_id ON checkpoints(project_id);

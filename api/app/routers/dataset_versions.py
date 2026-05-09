@@ -1,26 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import dataset_versions as dv_models
-from ..models import projects as project_models
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi.responses import Response
 from pydantic import BaseModel
-from typing import Optional, List
-import io
+from sqlalchemy.orm import Session
 
-from ..services.minio_client import get_minio_client, ensure_bucket
-
-BUCKET_NAME = "datasets"
+from ..database import get_db
+from ..services import dataset_versions as service
 
 router = APIRouter(prefix="/dataset-versions", tags=["dataset-versions"])
 
-class DatasetVersionCreate(BaseModel):
-    project_id: int
-    name: str
-    version: str
+
+class DatasetVersionUpdate(BaseModel):
+    name: Optional[str] = None
+    version: Optional[str] = None
     description: Optional[str] = None
 
 
-@router.post("/")
+@router.post("/", status_code=201)
 async def create_dataset_version(
     project_id: int = Form(...),
     name: str = Form(...),
@@ -29,80 +26,34 @@ async def create_dataset_version(
     files: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db),
 ):
-    # Kiểm tra project có tồn tại không
-    project = db.query(project_models.Project).filter(project_models.Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    return service.create_version(db, project_id, name, version, description, files)
 
-    # Tạo storage_path theo format yêu cầu
-    storage_path = f"datasets/project_{project_id}/{name}/{version}/"
-
-    db_dv = dv_models.DatasetVersion(
-        project_id=project_id,
-        name=name,
-        version=version,
-        description=description,
-        storage_path=storage_path,
-    )
-    db.add(db_dv)
-    db.commit()
-    db.refresh(db_dv)
-
-    # Ensure bucket exists then upload files under {storage_path}files/
-    ensure_bucket(BUCKET_NAME)
-    client = get_minio_client()
-    if files:
-        for f in files:
-            contents = await f.read()
-            object_name = f"{storage_path}files/{f.filename}"
-            client.put_object(
-                BUCKET_NAME,
-                object_name,
-                io.BytesIO(contents),
-                length=len(contents),
-                content_type=f.content_type or "application/octet-stream",
-            )
-
-    return db_dv
 
 @router.get("/")
-def get_all_dataset_versions(project_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = db.query(dv_models.DatasetVersion)
-    if project_id:
-        query = query.filter(dv_models.DatasetVersion.project_id == project_id)
-    return query.all()
+def list_versions(project_id: Optional[int] = None, db: Session = Depends(get_db)):
+    return service.list_versions(db, project_id)
+
 
 @router.get("/{dv_id}")
-def get_dataset_version_details(dv_id: int, db: Session = Depends(get_db)):
-    dv = db.query(dv_models.DatasetVersion).filter(dv_models.DatasetVersion.id == dv_id).first()
-    if not dv:
-        raise HTTPException(status_code=404, detail="Dataset version not found")
-    return dv
+def get_version(dv_id: int, db: Session = Depends(get_db)):
+    return service.get_version(db, dv_id)
+
+
+@router.patch("/{dv_id}")
+def update_version(dv_id: int, body: DatasetVersionUpdate, db: Session = Depends(get_db)):
+    return service.update_version(db, dv_id, body.name, body.version, body.description)
+
+
+@router.delete("/{dv_id}", status_code=204)
+def delete_version(dv_id: int, db: Session = Depends(get_db)):
+    service.delete_version(db, dv_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{dv_id}/upload-labels")
-async def upload_labels(dv_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
-    dv = db.query(dv_models.DatasetVersion).filter(dv_models.DatasetVersion.id == dv_id).first()
-    if not dv:
-        raise HTTPException(status_code=404, detail="Dataset version not found")
-
-    # Upload to {storage_path}annotations/
-    ensure_bucket(BUCKET_NAME)
-    client = get_minio_client()
-    for f in files:
-        contents = await f.read()
-        object_name = f"{dv.storage_path}annotations/{f.filename}"
-        client.put_object(
-            BUCKET_NAME,
-            object_name,
-            io.BytesIO(contents),
-            length=len(contents),
-            content_type=f.content_type or "application/octet-stream",
-        )
-
-    # After uploading labels, set label_type to 'human'
-    dv.label_type = 'human'
-    db.add(dv)
-    db.commit()
-    db.refresh(dv)
-    return dv
+async def upload_labels(
+    dv_id: int,
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    return service.upload_labels(db, dv_id, files)
