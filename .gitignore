@@ -2,3 +2,6 @@ local_data
 __pycache__/
 *.py[cod]
 todo.txt
+.env
+*.code-workspace
+CLAUDE.md
