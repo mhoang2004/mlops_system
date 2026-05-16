@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import projects, dataset_versions
+from app.routers import projects, dataset_versions, checkpoints
 
 app = FastAPI(title="MLOps API")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 # Đăng ký các router
 app.include_router(projects.router)
 app.include_router(dataset_versions.router)
+app.include_router(checkpoints.router)
 
 @app.get("/")
 def read_root():
