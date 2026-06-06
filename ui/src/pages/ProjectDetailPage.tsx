@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Database, Tag, Calendar, Trash2,
+  Database, Tag, Calendar, Trash2,
   Loader2, AlertCircle, FolderOpen, CheckCircle2, Clock,
-  Cpu, BarChart3, FlaskConical, LineChart, Plus, Upload
+  Cpu, BarChart3, FlaskConical, LineChart, Plus, Upload,
+  ChevronLeft
 } from 'lucide-react';
 import { api, type Project, type DatasetVersion, type Checkpoint } from '../lib/api';
 import { Card } from '../components/ui/Card';
@@ -29,10 +31,7 @@ function ProjectUploadCheckpointModal({ projectId, onCreated }: { projectId: num
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || files.length === 0) {
-      setError(t('error_checkpoint_fields'));
-      return;
-    }
+    if (!name.trim() || files.length === 0) { setError(t('error_checkpoint_fields')); return; }
     setLoading(true);
     setError('');
     try {
@@ -53,15 +52,15 @@ function ProjectUploadCheckpointModal({ projectId, onCreated }: { projectId: num
 
   return (
     <>
-      <Button icon={<Plus className="w-4 h-4" />} onClick={() => setOpen(true)}>
+      <Button icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setOpen(true)}>
         {t('ckpt_upload')}
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={t('ckpt_upload_title')}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Input
             id="ckpt-name"
             label={t('ckpt_name')}
-            placeholder="VD: yolov8n_pretrained"
+            placeholder="yolov8n_pretrained"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -76,7 +75,7 @@ function ProjectUploadCheckpointModal({ projectId, onCreated }: { projectId: num
           {error && <p className="text-xs text-red-400">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit" loading={loading} icon={<Upload className="w-4 h-4" />}>
+            <Button type="submit" loading={loading} icon={<Upload className="w-3.5 h-3.5" />}>
               {t('upload')}
             </Button>
           </div>
@@ -85,6 +84,13 @@ function ProjectUploadCheckpointModal({ projectId, onCreated }: { projectId: num
     </>
   );
 }
+
+const TABS = [
+  { id: 'datasets' as TabType, icon: Database },
+  { id: 'checkpoints' as TabType, icon: Cpu },
+  { id: 'experiments' as TabType, icon: FlaskConical },
+  { id: 'evaluations' as TabType, icon: LineChart },
+] as const;
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -99,8 +105,6 @@ export function ProjectDetailPage() {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingCkptId, setDeletingCkptId] = useState<number | null>(null);
-
-  // Tabs state
   const [activeTab, setActiveTab] = useState<TabType>('datasets');
 
   useEffect(() => {
@@ -110,20 +114,14 @@ export function ProjectDetailPage() {
       api.datasetVersions.list(projectId),
       api.checkpoints.list(projectId),
     ])
-      .then(([proj, dvs, ckpts]) => {
-        setProject(proj);
-        setVersions(dvs);
-        setCheckpoints(ckpts);
-      })
+      .then(([proj, dvs, ckpts]) => { setProject(proj); setVersions(dvs); setCheckpoints(ckpts); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [projectId]);
 
   const handleDatasetCreated = (dv: DatasetVersion) => setVersions((prev) => [dv, ...prev]);
-
   const handleLabelsUploaded = (updated: DatasetVersion) =>
     setVersions((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
-
   const handleCheckpointCreated = (c: Checkpoint) => setCheckpoints((prev) => [c, ...prev]);
 
   const handleDatasetDelete = async (dvId: number) => {
@@ -132,11 +130,8 @@ export function ProjectDetailPage() {
     try {
       await api.datasetVersions.delete(dvId);
       setVersions((prev) => prev.filter((v) => v.id !== dvId));
-    } catch (e) {
-      alert(t('delete_failed'));
-    } finally {
-      setDeletingId(null);
-    }
+    } catch { alert(t('delete_failed')); }
+    finally { setDeletingId(null); }
   };
 
   const handleCheckpointDelete = async (ckptId: number) => {
@@ -145,300 +140,366 @@ export function ProjectDetailPage() {
     try {
       await api.checkpoints.delete(ckptId);
       setCheckpoints((prev) => prev.filter((c) => c.id !== ckptId));
-    } catch (e) {
-      alert(t('delete_failed'));
-    } finally {
-      setDeletingCkptId(null);
-    }
+    } catch { alert(t('delete_failed')); }
+    finally { setDeletingCkptId(null); }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 text-slate-500 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        <span className="text-sm font-medium">{t('loading')}</span>
+      <div className="flex flex-col items-center justify-center py-28 text-zinc-600 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-violet-500/50" />
+        <span className="text-sm">{t('loading')}</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 p-5 bg-red-500/10 border border-red-500/25 rounded-2xl text-red-400 text-sm shadow-lg shadow-red-500/5">
-        <AlertCircle className="w-5 h-5 shrink-0 text-red-400" />
+      <div className="flex items-center gap-3 p-5 bg-red-500/8 border border-red-500/20 rounded-xl text-red-400 text-sm">
+        <AlertCircle className="w-4 h-4 shrink-0" />
         <span>{error}</span>
       </div>
     );
   }
 
+  const stats = [
+    { label: t('project_stat_total_versions'), value: versions.length, icon: Database, color: 'text-violet-400' },
+    { label: t('project_stat_labeled'), value: versions.filter((v) => v.label_type === 'human').length, icon: CheckCircle2, color: 'text-emerald-400' },
+    { label: t('project_stat_unlabeled'), value: versions.filter((v) => v.label_type === 'unlabeled').length, icon: Clock, color: 'text-amber-400' },
+    { label: t('project_stat_checkpoints'), value: checkpoints.length, icon: Cpu, color: 'text-cyan-400' },
+  ];
+
   return (
-    <div className="flex flex-col gap-10 py-10">
-      {/* Back button & Header */}
+    <div className="flex flex-col gap-12">
+
+      {/* ── Back nav ─────────────────────────────────────────────── */}
       <div>
         <button
           onClick={() => navigate('/')}
-          className="group flex items-center gap-2.5 text-sm text-slate-400 hover:text-slate-200 transition-colors mb-8 font-semibold"
+          className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-200 transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" /> {t('project_back')}
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-150" />
+          {t('project_back')}
         </button>
+      </div>
 
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 bg-slate-900/20 p-8 md:p-10 rounded-3xl border border-slate-800/40 backdrop-blur-sm shadow-md">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-extrabold text-white tracking-tight truncate">{project?.name}</h1>
-            <p className="text-slate-400 text-sm mt-3.5 flex items-center gap-2 font-medium">
-              <Calendar className="w-4 h-4 text-slate-500" />
-              {t('projects_created_at')} {project && formatDate(project.created_at)}
-            </p>
+      {/* ── Project header ───────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-6">
+        <div className="space-y-4 min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight truncate">
+            {project?.name}
+          </h1>
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-sm text-zinc-500 flex items-center gap-1.5 leading-none">
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              {project && formatDate(project.created_at)}
+            </span>
             {project?.labels && project.labels.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-5">
-                {project.labels.map((l, i) => (
-                  <Badge key={i} variant="info" className="px-3 py-1 text-xs">
-                    <Tag className="w-3.5 h-3.5 mr-1.5" />
+              <div className="flex flex-wrap gap-2">
+                {project.labels.slice(0, 5).map((l, i) => (
+                  <Badge key={i} variant="info" className="gap-1">
+                    <Tag className="w-2.5 h-2.5" />
                     {l.name}
                   </Badge>
                 ))}
+                {project.labels.length > 5 && (
+                  <Badge variant="muted">+{project.labels.length - 5}</Badge>
+                )}
               </div>
             )}
           </div>
+        </div>
 
-          <div className="shrink-0 mt-2 md:mt-0">
-            {activeTab === 'datasets' && (
-              <CreateDatasetVersionModal projectId={projectId} onCreated={handleDatasetCreated} />
-            )}
-            {activeTab === 'checkpoints' && (
-              <ProjectUploadCheckpointModal projectId={projectId} onCreated={handleCheckpointCreated} />
-            )}
-          </div>
+        <div className="shrink-0 pt-1">
+          {activeTab === 'datasets' && (
+            <CreateDatasetVersionModal projectId={projectId} onCreated={handleDatasetCreated} />
+          )}
+          {activeTab === 'checkpoints' && (
+            <ProjectUploadCheckpointModal projectId={projectId} onCreated={handleCheckpointCreated} />
+          )}
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: t('project_stat_total_versions'), value: versions.length, icon: Database },
-          { label: t('project_stat_labeled'), value: versions.filter((v) => v.label_type === 'human').length, icon: CheckCircle2 },
-          { label: t('project_stat_unlabeled'), value: versions.filter((v) => v.label_type === 'unlabeled').length, icon: Clock },
-          { label: t('project_stat_checkpoints'), value: checkpoints.length, icon: Cpu },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-slate-800/35 border border-slate-700/40 rounded-2xl p-6 md:p-7 flex items-center gap-5 hover:border-slate-700/80 transition-all duration-200 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center shrink-0 shadow-inner">
-              <Icon className="w-5 h-5 text-indigo-400" />
+      {/* ── Stats row ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        {stats.map(({ label, value, icon: Icon, color }) => (
+          <div
+            key={label}
+            className="bg-[#111113] border border-zinc-800/80 rounded-xl p-6 flex items-center gap-5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+              <Icon className={`w-4.5 h-4.5 ${color}`} strokeWidth={2} />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white tracking-tight">{value}</p>
-              <p className="text-xs text-slate-500 font-semibold mt-1">{label}</p>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-zinc-100 leading-none">{value}</p>
+              <p className="text-xs text-zinc-500 mt-1.5 leading-snug">{label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Tabs navigation */}
-      <div className="flex border-b border-slate-800/80 p-1.5 bg-slate-900/40 rounded-2xl max-w-fit gap-3">
-        {([
-          { id: 'datasets', label: t('project_tab_datasets'), icon: Database },
-          { id: 'checkpoints', label: t('project_tab_checkpoints'), icon: Cpu },
-          { id: 'experiments', label: t('project_tab_experiments'), icon: FlaskConical },
-          { id: 'evaluations', label: t('project_tab_evaluations'), icon: LineChart },
-        ] as const).map(({ id: tabId, label, icon: Icon }) => {
+      {/* ── Tabs ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 border-b border-zinc-800/60 pb-px">
+        {TABS.map(({ id: tabId, icon: Icon }) => {
+          const label = t(`project_tab_${tabId}` as Parameters<typeof t>[0]);
           const active = activeTab === tabId;
           return (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
-              className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-250 cursor-pointer ${
-                active
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/10'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              className={`relative flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-150 cursor-pointer ${
+                active ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              <Icon className="w-4 h-4 shrink-0" strokeWidth={2} />
               <span>{label}</span>
+              {active && (
+                <motion.div
+                  layoutId="tab-indicator"
+                  className="absolute inset-x-0 bottom-[-1px] h-px bg-violet-500"
+                  transition={{ duration: 0.2, type: "tween" }}
+                />
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Tab Panels */}
-      <div className="min-h-[300px]">
-        {/* Datasets Tab Panel */}
-        {activeTab === 'datasets' && (
-          versions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center bg-slate-900/10 rounded-3xl border border-dashed border-slate-800 p-12">
-              <div className="w-20 h-20 rounded-3xl bg-slate-800 border border-slate-700/60 flex items-center justify-center mb-6 shadow-xl shadow-slate-950/20">
-                <FolderOpen className="w-8 h-8 text-slate-500" />
-              </div>
-              <p className="text-slate-200 font-semibold text-lg">{t('dv_empty')}</p>
-              <p className="text-slate-500 text-sm mt-2 max-w-sm">{t('dv_empty_hint')}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {versions.map((dv) => (
-                <Card key={dv.id} className="flex flex-col md:flex-row items-start md:items-center gap-8 shadow-sm hover:shadow-indigo-500/5">
-                  <div className="w-14 h-14 rounded-xl bg-slate-800/90 border border-slate-700/50 flex items-center justify-center shrink-0">
-                    <Database className="w-7 h-7 text-slate-400" />
-                  </div>
+      {/* ── Tab content ──────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.15 }}
+        >
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap mb-4">
-                      <span className="text-lg font-extrabold text-white truncate">{dv.name}</span>
-                      <Badge variant="muted" className="px-2.5 py-1 text-xs font-semibold">{dv.version}</Badge>
-                      <Badge variant={dv.label_type === 'human' ? 'success' : 'warning'} className="px-2.5 py-1 text-xs font-semibold">
-                        {dv.label_type === 'human' ? t('dv_labeled') : t('dv_unlabeled')}
-                      </Badge>
-                    </div>
-                    {dv.description && (
-                      <p className="text-sm text-slate-400 mb-3 leading-relaxed">{dv.description}</p>
-                    )}
-                    <p className="text-xs text-slate-500 font-mono truncate bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-800/80 max-w-fit">{dv.storage_path}</p>
-                    <p className="text-xs text-slate-500 mt-5 flex items-center gap-1.5 font-semibold">
-                      <Calendar className="w-4 h-4 text-slate-600" />
-                      {formatDate(dv.created_at)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end mt-4 md:mt-0 border-t border-slate-800/50 md:border-t-0 pt-4 md:pt-0">
-                    <UploadLabelsModal datasetVersion={dv} onUploaded={handleLabelsUploaded} />
-                    <Button
-                      size="md"
-                      variant="danger"
-                      className="px-4 py-2.5"
-                      icon={deletingId === dv.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      onClick={() => handleDatasetDelete(dv.id)}
-                      disabled={deletingId === dv.id}
+          {/* Datasets */}
+          {activeTab === 'datasets' && (
+            versions.length === 0
+              ? <EmptyState icon={FolderOpen} title={t('dv_empty')} hint={t('dv_empty_hint')} />
+              : (
+                <div className="flex flex-col gap-4">
+                  {versions.map((dv, i) => (
+                    <motion.div
+                      key={dv.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18, delay: i * 0.05 }}
                     >
-                      {t('delete')}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )
-        )}
+                      <Card className="p-6 flex items-start gap-5 hover:border-zinc-700/60 transition-colors duration-150">
+                        {/* Icon */}
+                        <div className="w-10 h-10 rounded-xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-center shrink-0 mt-0.5">
+                          <Database className="w-4.5 h-4.5 text-zinc-400" strokeWidth={2} />
+                        </div>
 
-        {/* Checkpoints Tab Panel */}
-        {activeTab === 'checkpoints' && (
-          checkpoints.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center bg-slate-900/10 rounded-3xl border border-dashed border-slate-800 p-12">
-              <div className="w-20 h-20 rounded-3xl bg-slate-800 border border-slate-700/60 flex items-center justify-center mb-6 shadow-xl shadow-slate-950/20">
-                <Cpu className="w-8 h-8 text-slate-500" />
-              </div>
-              <p className="text-slate-200 font-semibold text-lg">{t('ckpt_empty')}</p>
-              <p className="text-slate-500 text-sm mt-2 max-w-sm">{t('ckpt_empty_hint')}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {checkpoints.map((ck) => (
-                <Card key={ck.id} className="flex flex-col md:flex-row items-start md:items-center gap-8 shadow-sm hover:shadow-indigo-500/5">
-                  <div className="w-14 h-14 rounded-xl bg-slate-800/90 border border-slate-700/50 flex items-center justify-center shrink-0">
-                    <Cpu className="w-7 h-7 text-indigo-400" />
-                  </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0 space-y-2.5">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-sm font-semibold text-zinc-100">{dv.name}</span>
+                            <Badge variant="muted">{dv.version}</Badge>
+                            <Badge variant={dv.label_type === 'human' ? 'success' : 'warning'} dot>
+                              {dv.label_type === 'human' ? t('dv_labeled') : t('dv_unlabeled')}
+                            </Badge>
+                          </div>
+                          {dv.description && (
+                            <p className="text-sm text-zinc-500 leading-relaxed line-clamp-1">
+                              {dv.description}
+                            </p>
+                          )}
+                          <p className="text-xs text-zinc-600 font-mono leading-relaxed truncate">
+                            {dv.storage_path}
+                          </p>
+                          <p className="text-xs text-zinc-600 flex items-center gap-1.5 pt-0.5">
+                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                            {formatDate(dv.created_at)}
+                          </p>
+                        </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap mb-4">
-                      <span className="text-lg font-extrabold text-white truncate">{ck.name}</span>
-                      <Badge variant={ck.source === 'pretrained' ? 'info' : 'success'} className="px-2.5 py-1 text-xs font-semibold">
-                        {ck.source === 'pretrained' ? t('ckpt_pretrained') : t('ckpt_experiment')}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-slate-500 font-mono truncate bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-800/80 max-w-fit">{ck.file_path}</p>
-                    {ck.metrics && Object.keys(ck.metrics).length > 0 && (
-                      <div className="flex items-center gap-2 mt-4 flex-wrap">
-                        <BarChart3 className="w-4 h-4 text-slate-500 shrink-0 mr-1" />
-                        {Object.entries(ck.metrics).map(([k, v]) => (
-                          <Badge key={k} variant="muted" className="px-2.5 py-1 text-xs font-semibold">
-                            {k}: {String(v)}
-                          </Badge>
-                        ))}
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 shrink-0 pt-0.5">
+                          <UploadLabelsModal datasetVersion={dv} onUploaded={handleLabelsUploaded} />
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            icon={deletingId === dv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => handleDatasetDelete(dv.id)}
+                            disabled={deletingId === dv.id}
+                          >
+                            {t('delete')}
+                          </Button>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )
+          )}
+
+          {/* Checkpoints */}
+          {activeTab === 'checkpoints' && (
+            checkpoints.length === 0
+              ? <EmptyState icon={Cpu} title={t('ckpt_empty')} hint={t('ckpt_empty_hint')} />
+              : (
+                <div className="flex flex-col gap-4">
+                  {checkpoints.map((ck, i) => (
+                    <motion.div
+                      key={ck.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18, delay: i * 0.05 }}
+                    >
+                      <Card className="p-6 flex items-start gap-5 hover:border-zinc-700/60 transition-colors duration-150">
+                        {/* Icon */}
+                        <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <Cpu className="w-4.5 h-4.5 text-violet-400" strokeWidth={2} />
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0 space-y-2.5">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-sm font-semibold text-zinc-100">{ck.name}</span>
+                            <Badge variant={ck.source === 'pretrained' ? 'info' : 'success'}>
+                              {ck.source === 'pretrained' ? t('ckpt_pretrained') : t('ckpt_experiment')}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-zinc-600 font-mono leading-relaxed truncate">
+                            {ck.file_path}
+                          </p>
+                          {ck.metrics && Object.keys(ck.metrics).length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                              <BarChart3 className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                              {Object.entries(ck.metrics).map(([k, v]) => (
+                                <Badge key={k} variant="muted">{k}: {String(v)}</Badge>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-xs text-zinc-600 flex items-center gap-1.5 pt-0.5">
+                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                            {formatDate(ck.created_at)}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="shrink-0 pt-0.5">
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            icon={deletingCkptId === ck.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => handleCheckpointDelete(ck.id)}
+                            disabled={deletingCkptId === ck.id}
+                          >
+                            {t('delete')}
+                          </Button>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )
+          )}
+
+          {/* Experiments placeholder */}
+          {activeTab === 'experiments' && (
+            <ComingSoonPlaceholder
+              icon={FlaskConical}
+              color="violet"
+              title={t('project_coming_soon')}
+              hint={t('project_coming_soon_hint')}
+              previewSlot={
+                <div className="grid grid-cols-2 gap-5 mt-10 opacity-25 select-none pointer-events-none w-full max-w-lg">
+                  {[
+                    { code: 'EXP-001', name: 'YOLOv8n Train', status: 'Running', progress: 45, statusVariant: 'success' as const },
+                    { code: 'EXP-002', name: 'YOLOv8s Baseline', status: 'Finished', progress: 100, statusVariant: 'muted' as const },
+                  ].map((exp) => (
+                    <Card key={exp.code} className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-bold text-violet-400 font-mono tracking-wide">{exp.code}</span>
+                        <Badge variant={exp.statusVariant}>{exp.status}</Badge>
                       </div>
-                    )}
-                    <p className="text-xs text-slate-500 mt-5 flex items-center gap-1.5 font-semibold">
-                      <Calendar className="w-4 h-4 text-slate-600" />
-                      {formatDate(ck.created_at)}
-                    </p>
-                  </div>
-
-                  <div className="w-full md:w-auto flex justify-end mt-4 md:mt-0 border-t border-slate-800/50 md:border-t-0 pt-4 md:pt-0">
-                    <Button
-                      size="md"
-                      variant="danger"
-                      className="px-4 py-2.5"
-                      icon={deletingCkptId === ck.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      onClick={() => handleCheckpointDelete(ck.id)}
-                      disabled={deletingCkptId === ck.id}
-                    >
-                      {t('delete')}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )
-        )}
-
-        {/* Experiments Tab Panel (Placeholder) */}
-        {activeTab === 'experiments' && (
-          <div className="flex flex-col items-center justify-center py-24 text-center bg-slate-900/20 rounded-3xl border border-slate-800/60 p-12 shadow-inner">
-            <div className="w-24 h-24 rounded-3xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/5 animate-pulse">
-              <FlaskConical className="w-10 h-10 text-indigo-400" />
-            </div>
-            <h3 className="text-xl font-extrabold text-white">{t('project_coming_soon')}</h3>
-            <p className="text-slate-500 text-sm mt-3 max-w-sm leading-relaxed">{t('project_coming_soon_hint')}</p>
-
-            {/* Simulated experiments view */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-12 w-full max-w-3xl text-left opacity-35 select-none pointer-events-none">
-              <Card className="border-slate-800 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono">EXP-001</span>
-                  <Badge variant="success" className="px-2.5 py-1 text-xs">Running</Badge>
+                      <p className="text-sm font-semibold text-zinc-200 mb-1">{exp.name}</p>
+                      <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-4">
+                        <div className="bg-violet-500 h-full rounded-full" style={{ width: `${exp.progress}%` }} />
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-                <h4 className="text-base font-extrabold text-slate-300">YOLOv8n Train Session</h4>
-                <p className="text-xs text-slate-500 mt-2 font-medium">Epoch 45/100 · loss: 0.043</p>
-                <div className="w-full bg-slate-800 h-2 rounded-full mt-5 overflow-hidden">
-                  <div className="bg-indigo-500 h-full w-[45%]" />
-                </div>
-              </Card>
+              }
+            />
+          )}
 
-              <Card className="border-slate-800 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">EXP-002</span>
-                  <Badge variant="muted" className="px-2.5 py-1 text-xs">Finished</Badge>
+          {/* Evaluations placeholder */}
+          {activeTab === 'evaluations' && (
+            <ComingSoonPlaceholder
+              icon={LineChart}
+              color="emerald"
+              title={t('project_coming_soon')}
+              hint={t('project_coming_soon_hint')}
+              previewSlot={
+                <div className="w-full max-w-lg mt-10 opacity-25 select-none pointer-events-none">
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <span className="text-sm font-semibold text-zinc-300">Model Performance</span>
+                      <Badge variant="info">mAP50-95</Badge>
+                    </div>
+                    <div className="h-32 flex items-end justify-between gap-2">
+                      {[30, 45, 60, 50, 85, 92].map((h, i) => (
+                        <div key={i} className="flex-1 rounded-t" style={{ height: `${h}%`, backgroundColor: i >= 4 ? '#10b981' : '#27272a' }} />
+                      ))}
+                    </div>
+                  </Card>
                 </div>
-                <h4 className="text-base font-extrabold text-slate-300">YOLOv8s Baseline</h4>
-                <p className="text-xs text-slate-500 mt-2 font-medium">100 epochs · mAP50-95: 0.684</p>
-                <div className="w-full bg-slate-800 h-2 rounded-full mt-5 overflow-hidden">
-                  <div className="bg-emerald-500 h-full w-full" />
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
+              }
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
 
-        {/* Evaluations Tab Panel (Placeholder) */}
-        {activeTab === 'evaluations' && (
-          <div className="flex flex-col items-center justify-center py-24 text-center bg-slate-900/20 rounded-3xl border border-slate-800/60 p-12 shadow-inner">
-            <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/5 animate-pulse">
-              <LineChart className="w-10 h-10 text-emerald-400" />
-            </div>
-            <h3 className="text-xl font-extrabold text-white">{t('project_coming_soon')}</h3>
-            <p className="text-slate-500 text-sm mt-3 max-w-sm leading-relaxed">{t('project_coming_soon_hint')}</p>
+// ── Shared sub-components ────────────────────────────────────────────────────
 
-            {/* Simulated evaluation metrics view */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 mt-12 w-full max-w-3xl text-left opacity-35 select-none pointer-events-none shadow-lg">
-              <div className="flex items-center justify-between mb-5 border-b border-slate-850 pb-4">
-                <span className="text-base font-bold text-slate-300">Model Performance Chart</span>
-                <Badge variant="info" className="px-2.5 py-1 text-xs">Confusion Matrix</Badge>
-              </div>
-              <div className="h-56 bg-slate-955 rounded-2xl flex items-end justify-between p-6 gap-3">
-                <div className="w-full bg-slate-800 h-[30%] rounded-lg" />
-                <div className="w-full bg-slate-800 h-[45%] rounded-lg" />
-                <div className="w-full bg-indigo-500/40 h-[60%] rounded-lg" />
-                <div className="w-full bg-slate-800 h-[50%] rounded-lg" />
-                <div className="w-full bg-indigo-500 h-[85%] rounded-lg" />
-                <div className="w-full bg-emerald-500 h-[92%] rounded-lg" />
-              </div>
-            </div>
-          </div>
-        )}
+function EmptyState({ icon: Icon, title, hint }: { icon: React.ElementType; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-zinc-800 rounded-xl">
+      <div className="w-14 h-14 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-5">
+        <Icon className="w-6 h-6 text-zinc-600" strokeWidth={2} />
       </div>
+      <p className="text-base font-medium text-zinc-300">{title}</p>
+      <p className="text-sm text-zinc-600 mt-2 leading-relaxed">{hint}</p>
+    </div>
+  );
+}
+
+function ComingSoonPlaceholder({
+  icon: Icon,
+  color,
+  title,
+  hint,
+  previewSlot,
+}: {
+  icon: React.ElementType;
+  color: 'violet' | 'emerald';
+  title: string;
+  hint: string;
+  previewSlot?: React.ReactNode;
+}) {
+  const cls = color === 'violet'
+    ? 'bg-violet-500/8 border-violet-500/20 text-violet-400'
+    : 'bg-emerald-500/8 border-emerald-500/20 text-emerald-400';
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className={`w-14 h-14 rounded-xl border flex items-center justify-center mb-5 ${cls}`}>
+        <Icon className="w-6 h-6" strokeWidth={2} />
+      </div>
+      <p className="text-base font-semibold text-zinc-200">{title}</p>
+      <p className="text-sm text-zinc-500 mt-2 max-w-xs leading-relaxed">{hint}</p>
+      {previewSlot}
     </div>
   );
 }

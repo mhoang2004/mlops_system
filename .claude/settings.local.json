@@ -5,7 +5,20 @@
       "Bash(Select-Object -Property FullName)",
       "Bash(Sort-Object FullName)",
       "Bash(ConvertTo-Json)",
-      "Bash(Get-Content *)"
+      "Bash(Get-Content *)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh repo *)",
+      "PowerShell(gh repo view rtk-ai/rtk --json description,url 2>&1 | Select-Object -First 20)",
+      "WebFetch(domain:api.github.com)",
+      "PowerShell($env:PATH -split ';' | Where-Object { $_ -ne '' } | Select-Object -First 20)",
+      "PowerShell($env:PATH += \";C:\\\\Users\\\\adm\\\\AppData\\\\Local\\\\rtk\"; & \"C:\\\\Users\\\\adm\\\\AppData\\\\Local\\\\rtk\\\\rtk.exe\" --version)",
+      "PowerShell($env:PATH += \";C:\\\\Users\\\\adm\\\\AppData\\\\Local\\\\rtk\"; & \"C:\\\\Users\\\\adm\\\\AppData\\\\Local\\\\rtk\\\\rtk.exe\" init -g 2>&1)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/framer-motion/package.json'\\).version\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('common/minio_client.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\))"
     ]
   }
 }

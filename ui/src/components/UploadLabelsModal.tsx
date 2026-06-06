@@ -51,11 +51,11 @@ export function UploadLabelsModal({ datasetVersion, onUploaded }: Props) {
         onClose={() => setOpen(false)}
         title={`${t('dv_upload_labels')} — ${datasetVersion.name} ${datasetVersion.version}`}
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="bg-slate-900/60 rounded-xl p-5 text-sm text-slate-400 border border-slate-800">
-            <p className="font-semibold text-slate-300 mb-3">{t('dv_info')}</p>
-            <p>{t('dv_storage_path')}: <code className="text-indigo-400 text-xs">{datasetVersion.storage_path}</code></p>
-            <p className="mt-2">{t('dv_label_status')}:{' '}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="bg-zinc-900/60 rounded-xl px-5 py-4 text-sm text-zinc-400 border border-zinc-800 space-y-2">
+            <p className="font-semibold text-zinc-300">{t('dv_info')}</p>
+            <p>{t('dv_storage_path')}: <code className="text-violet-400 text-xs">{datasetVersion.storage_path}</code></p>
+            <p>{t('dv_label_status')}:{' '}
               <span className={datasetVersion.label_type === 'human' ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
                 {datasetVersion.label_type === 'human' ? t('dv_labeled') : t('dv_unlabeled')}
               </span>
@@ -72,7 +72,7 @@ export function UploadLabelsModal({ datasetVersion, onUploaded }: Props) {
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-1">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {t('cancel')}
             </Button>

@@ -5,20 +5,20 @@ export function LanguageSwitcher() {
   const { lang, setLang } = useLang();
 
   return (
-    <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-0.5">
+    <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-1">
       {(['vi', 'en'] as const).map((l) => (
         <button
           key={l}
           onClick={() => setLang(l)}
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200',
+            'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
             lang === l
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200',
+              ? 'bg-zinc-800 text-zinc-200 shadow-sm'
+              : 'text-zinc-600 hover:text-zinc-400',
           )}
         >
           <span>{l === 'vi' ? '🇻🇳' : '🇬🇧'}</span>
-          <span>{l === 'vi' ? 'VI' : 'EN'}</span>
+          <span>{l.toUpperCase()}</span>
         </button>
       ))}
     </div>

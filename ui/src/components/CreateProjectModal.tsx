@@ -57,7 +57,7 @@ export function CreateProjectModal({ onCreated }: Props) {
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('cp_title')}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Input
             id="project-name"
             label={t('cp_name')}
@@ -67,8 +67,10 @@ export function CreateProjectModal({ onCreated }: Props) {
             error={error}
           />
 
-          <div className="flex flex-col gap-2.5">
-            <label className="text-sm font-medium text-slate-300">{t('cp_labels')}</label>
+          <div className="flex flex-col gap-3">
+            <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
+              {t('cp_labels')}
+            </label>
             <div className="flex gap-2">
               <Input
                 id="label-input"
@@ -83,18 +85,18 @@ export function CreateProjectModal({ onCreated }: Props) {
               </Button>
             </div>
             {labels.length > 0 && (
-              <div className="flex flex-wrap gap-2.5 mt-3">
+              <div className="flex flex-wrap gap-2 pt-1">
                 {labels.map((l) => (
                   <span
                     key={l}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-500/10 text-violet-300 border border-violet-500/20"
                   >
                     <Tag className="w-3 h-3" />
                     {l}
                     <button
                       type="button"
                       onClick={() => removeLabel(l)}
-                      className="hover:text-red-400 transition-colors ml-0.5"
+                      className="hover:text-red-400 transition-colors ml-0.5 text-sm leading-none"
                     >
                       ×
                     </button>
@@ -104,7 +106,7 @@ export function CreateProjectModal({ onCreated }: Props) {
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-3">
+          <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {t('cancel')}
             </Button>

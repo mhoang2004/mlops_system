@@ -19,3 +19,18 @@ def create(db: Session, name: str, labels: Any) -> Project:
     db.commit()
     db.refresh(project)
     return project
+
+
+def update(db: Session, project: Project, name: Optional[str], labels: Optional[Any]) -> Project:
+    if name is not None:
+        project.name = name
+    if labels is not None:
+        project.labels = labels
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def delete(db: Session, project: Project) -> None:
+    db.delete(project)
+    db.commit()

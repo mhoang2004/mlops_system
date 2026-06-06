@@ -1,6 +1,30 @@
 version: '3.8'
 
+x-common-env: &common-env
+  CELERY_BROKER_URL:     redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  MINIO_ENDPOINT:        minio:9000
+  MINIO_ACCESS_KEY:      ${MINIO_ROOT_USER}
+  MINIO_SECRET_KEY:      ${MINIO_ROOT_PASSWORD}
+  API_INTERNAL_URL:      http://api:8000
+  EXPERIMENT_WORKDIR:    /workspace/experiments
+
+x-worker-common: &worker-common
+  volumes:
+    - ./trainingworker:/app
+    - ./common:/app/common
+    - worker_data:/workspace/experiments
+  networks:
+    - mlops_network
+  depends_on:
+    redis:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+
 services:
+
+  # ── API ─────────────────────────────────────────────────────────────────────
   api:
     build: ./api
     ports:
@@ -9,42 +33,120 @@ services:
       - ./api:/app
       - ./common:/app/common
     environment:
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      <<: *common-env
+      POSTGRES_USER:         ${POSTGRES_USER}
+      POSTGRES_PASSWORD:     ${POSTGRES_PASSWORD}
+      POSTGRES_DB:           ${POSTGRES_DB}
+      MINIO_PUBLIC_ENDPOINT: localhost:9000
     networks:
       - mlops_network
     depends_on:
-      - db
-      - minio
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  # ── Worker — CPU ─────────────────────────────────────────────────────────────
+  # Profile: cpu
+  # Usage : docker compose --profile cpu up
+  # Scale : docker compose --profile cpu up --scale worker-cpu=2
+  worker-cpu:
+    <<: *worker-common
+    profiles: ["cpu"]
+    build:
+      context: ./trainingworker
+      dockerfile: Dockerfile
+    container_name: mlops-worker-cpu
+    environment:
+      <<: *common-env
+
+  # ── Worker — GPU ─────────────────────────────────────────────────────────────
+  # Profile: gpu
+  # Usage : docker compose --profile gpu up
+  #
+  # Prerequisites:
+  #   1. NVIDIA GPU driver >= 525
+  #   2. NVIDIA Container Toolkit installed & configured
+  #      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+  #   3. /etc/docker/daemon.json contains:
+  #      { "default-runtime": "nvidia" }  OR use the `runtime` key below
+  worker-gpu:
+    <<: *worker-common
+    profiles: ["gpu"]
+    build:
+      context: ./trainingworker
+      dockerfile: Dockerfile.gpu      # pytorch/pytorch CUDA 12.1 base
+    container_name: mlops-worker-gpu
+    runtime: nvidia                   # requires nvidia-container-runtime
+    environment:
+      <<: *common-env
+      TASK_SOFT_LIMIT_SEC:   43200
+      TASK_HARD_LIMIT_SEC:   46800
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}  # override per-job if needed
+
+  # ── Database ──────────────────────────────────────────────────────────────────
   db:
-    image: postgres:latest
+    image: postgres:15-alpine
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_USER:     ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB:       ${POSTGRES_DB}
     volumes:
-      - ./local_data/postgres:/var/lib/postgresql
+      - ./local_data/postgres:/var/lib/postgresql/data
     networks:
       - mlops_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
+  # ── MinIO ─────────────────────────────────────────────────────────────────────
   minio:
-    image: minio/minio
+    image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - ./local_data/minio:/data
     networks:
       - mlops_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - mlops_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   mlops_network:
     driver: bridge
+
+volumes:
+  worker_data:   # experiment scratch space (images & checkpoints downloaded from MinIO)
+  redis_data:    # Redis AOF for Celery result persistence

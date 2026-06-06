@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..models.checkpoints import Checkpoint
 from ..repositories import checkpoints as repo
 from ..repositories import projects as project_repo
-from common.minio_client import get_minio_client, ensure_bucket, upload_file
+from common.minio_client import get_minio_client, ensure_bucket, upload_file, get_presigned_url
 
 BUCKET_NAME = "checkpoints"
 
@@ -50,5 +50,23 @@ def update_checkpoint(
 def delete_checkpoint(db: Session, checkpoint_id: int) -> None:
     ckpt = get_checkpoint(db, checkpoint_id)
     client = get_minio_client()
-    client.remove_object(BUCKET_NAME, ckpt.file_path)
+    try:
+        client.remove_object(BUCKET_NAME, ckpt.file_path)
+    except Exception:
+        pass  # file may already be gone
     repo.delete(db, ckpt)
+
+
+def get_download_url(
+    db: Session,
+    checkpoint_id: int,
+    expires_seconds: int = 3600,
+) -> dict:
+    """Return a presigned URL to download the checkpoint file."""
+    ckpt = get_checkpoint(db, checkpoint_id)
+    url  = get_presigned_url(BUCKET_NAME, ckpt.file_path, expires_seconds)
+    return {
+        "url":             url,
+        "filename":        ckpt.file_path.split("/")[-1],
+        "expires_seconds": expires_seconds,
+    }

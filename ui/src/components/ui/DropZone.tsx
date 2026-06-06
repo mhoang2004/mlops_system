@@ -17,14 +17,7 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function DropZone({
-  onFilesChange,
-  accept,
-  multiple = true,
-  label,
-  hint,
-  files = [],
-}: DropZoneProps) {
+export function DropZone({ onFilesChange, accept, multiple = true, label, hint, files = [] }: DropZoneProps) {
   const [dragging, setDragging] = useState(false);
 
   const addFiles = useCallback(
@@ -42,30 +35,26 @@ export function DropZone({
 
   const getIcon = (file: File) => {
     if (file.type.startsWith('image/'))
-      return <Image className="w-3.5 h-3.5 text-violet-400 shrink-0" />;
-    return <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+      return <Image className="w-3 h-3 text-violet-400 shrink-0" />;
+    return <FileText className="w-3 h-3 text-amber-400 shrink-0" />;
   };
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       {label && (
-        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">{label}</p>
+        <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">{label}</p>
       )}
 
-      {/* Drop area */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}
         className={cn(
-          'relative rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer group',
-          'border-2 border-dashed',
+          'relative rounded-xl px-8 py-8 text-center transition-all duration-150 cursor-pointer group',
+          'border border-dashed',
           dragging
-            ? 'border-violet-500 bg-violet-500/8 scale-[1.01]'
-            : cn(
-                'border-zinc-800 bg-zinc-900/40',
-                'hover:border-zinc-700 hover:bg-zinc-900/60',
-              ),
+            ? 'border-violet-500/60 bg-violet-500/5'
+            : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50',
         )}
       >
         <input
@@ -76,63 +65,41 @@ export function DropZone({
           onChange={(e) => addFiles(e.target.files)}
         />
 
-        {/* Icon */}
-        <div
-          className={cn(
-            'w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center transition-all duration-200',
-            dragging
-              ? 'bg-violet-500/20 shadow-[0_0_0_8px_rgba(124,58,237,0.08)]'
-              : 'bg-zinc-800 group-hover:bg-zinc-700/80',
-          )}
-        >
-          <Upload
-            className={cn(
-              'w-5 h-5 transition-all duration-200',
-              dragging ? 'text-violet-400 -translate-y-0.5' : 'text-zinc-500 group-hover:text-zinc-400',
-            )}
-          />
+        <div className={cn(
+          'w-9 h-9 rounded-xl mx-auto mb-2.5 flex items-center justify-center transition-all duration-150',
+          dragging ? 'bg-violet-500/15' : 'bg-zinc-800/80 group-hover:bg-zinc-800',
+        )}>
+          <Upload className={cn('w-4 h-4 transition-all duration-150', dragging ? 'text-violet-400 -translate-y-0.5' : 'text-zinc-500 group-hover:text-zinc-400')} />
         </div>
 
-        <p className="text-sm text-zinc-400 leading-snug">
+        <p className="text-xs text-zinc-500 leading-snug">
           {dragging ? (
             <span className="text-violet-400 font-medium">Thả file vào đây</span>
           ) : (
             <>
-              Kéo thả file vào đây hoặc{' '}
-              <span className="text-violet-400 font-medium group-hover:text-violet-300 transition-colors">
-                chọn file
-              </span>
+              Kéo thả file hoặc{' '}
+              <span className="text-violet-400 font-medium">chọn file</span>
             </>
           )}
         </p>
-        {hint && <p className="text-xs text-zinc-600 mt-1.5">{hint}</p>}
+        {hint && <p className="text-[11px] text-zinc-700 mt-1">{hint}</p>}
       </div>
 
-      {/* File list */}
       {files.length > 0 && (
-        <ul className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+        <ul className="flex flex-col gap-1 max-h-40 overflow-y-auto">
           {files.map((f, i) => (
-            <li
-              key={i}
-              className={cn(
-                'flex items-center justify-between gap-2 rounded-xl px-3 py-2 transition-colors duration-150',
-                'bg-zinc-900/60 border border-zinc-800/80',
-                'hover:border-zinc-700/80',
-              )}
-            >
-              <div className="flex items-center gap-2 min-w-0">
+            <li key={i} className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700/80 transition-colors">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {getIcon(f)}
-                <span className="text-xs text-zinc-300 truncate">{f.name}</span>
-                <span className="text-[10px] text-zinc-600 shrink-0 tabular-nums">
-                  {formatSize(f.size)}
-                </span>
+                <span className="text-xs text-zinc-400 truncate">{f.name}</span>
+                <span className="text-[10px] text-zinc-600 shrink-0 tabular-nums">{formatSize(f.size)}</span>
               </div>
               <button
                 type="button"
                 onClick={() => removeFile(i)}
-                className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 p-0.5 rounded-md hover:bg-red-400/10"
+                className="text-zinc-700 hover:text-red-400 transition-colors shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             </li>
           ))}
@@ -140,8 +107,8 @@ export function DropZone({
       )}
 
       {files.length > 0 && (
-        <p className="flex items-center gap-1.5 text-xs text-zinc-600">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+        <p className="flex items-center gap-1 text-[11px] text-zinc-600">
+          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
           {files.length} file đã chọn
         </p>
       )}

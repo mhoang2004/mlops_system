@@ -64,8 +64,8 @@ export function CreateDatasetVersionModal({ projectId, onCreated }: Props) {
         title={t('dv_create')}
         className="max-w-xl"
       >
-        <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-4 gap-y-5">
             <Input
               id="dv-name"
               label={t('dv_name')}
@@ -107,21 +107,10 @@ export function CreateDatasetVersionModal({ projectId, onCreated }: Props) {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              className="px-5 py-2.5"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {t('cancel')}
             </Button>
-
-            <Button
-              type="submit"
-              loading={loading}
-              className="px-6 py-2.5"
-              icon={<Upload className="w-4 h-4 shrink-0" />}
-            >
+            <Button type="submit" loading={loading} icon={<Upload className="w-3.5 h-3.5" />}>
               {t('dv_create_upload')}
             </Button>
           </div>

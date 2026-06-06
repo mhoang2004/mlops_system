@@ -1,0 +1,59 @@
+# =============================================================================
+# Training Worker — GPU build (NVIDIA CUDA 12.1)
+#
+# Requirements:
+#   - NVIDIA GPU driver >= 525
+#   - NVIDIA Container Toolkit  (https://docs.nvidia.com/datacenter/cloud-native/)
+#   - Docker Engine with nvidia runtime configured
+#
+# docker compose --profile gpu up worker-gpu
+# =============================================================================
+
+# Base image already ships: Python 3.11, torch 2.4.0, torchvision 0.19.0
+# with CUDA 12.1 + cuDNN 9 — no need to reinstall them.
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# torch/torchvision already in base image — install only shared deps
+RUN pip install --no-cache-dir --upgrade pip
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application source
+COPY . .
+
+# Python module resolution (same as CPU build)
+ENV PYTHONPATH="/app:/app/trainers"
+
+# Working directory for experiment data
+ENV EXPERIMENT_WORKDIR="/workspace/experiments"
+RUN mkdir -p /workspace/experiments
+
+# Expose all available GPUs to the process by default.
+# Override per-container with: NVIDIA_VISIBLE_DEVICES=0
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Non-root user
+RUN useradd -m -u 1001 worker \
+    && chown -R worker:worker /app /workspace
+USER worker
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD celery -A celery_app inspect ping \
+        -d "celery@$$HOSTNAME" --timeout 5 > /dev/null 2>&1 || exit 1
+
+# --concurrency=1 : one job per GPU container
+CMD ["celery", "-A", "celery_app", "worker", \
+     "--loglevel=info", \
+     "--concurrency=1", \
+     "-Q", "celery", \
+     "--without-gossip", \
+     "--without-mingle"]
