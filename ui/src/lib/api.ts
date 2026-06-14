@@ -123,6 +123,10 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
+    activeOnServer: (serverId: string) =>
+      request<{ id: number; name: string; status: string; project_id: number }[]>(
+        `/experiments/active-on-server?server_id=${encodeURIComponent(serverId)}`
+      ),
     cancel: (id: number) =>
       request<Experiment>(`/experiments/${id}/cancel`, { method: 'POST' }),
     delete: (id: number) =>

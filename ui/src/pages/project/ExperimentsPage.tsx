@@ -67,6 +67,7 @@ function CreateExperimentModal({
   const [strategy, setStrategy]   = useState('CONCAT');
   const [ckptId, setCkptId]       = useState('');
   const [trainParams, setTrainParams] = useState<Record<string, unknown>>({});
+  const [serverBusy, setServerBusy] = useState<{ id: number; name: string; status: string }[]>([]);
   const [rows, setRows] = useState<DvRow[]>([
     { dvId: '', role: 'TRAIN', weight: '1' },
     { dvId: '', role: 'TEST',  weight: '1' },
@@ -117,9 +118,17 @@ function CreateExperimentModal({
     (c) => c.source === 'pretrained' || (modelId && c.ml_model_id === parseInt(modelId)),
   );
 
+  const handleServerChange = (id: string) => {
+    setServerId(id);
+    setServerBusy([]);
+    if (!id) return;
+    api.experiments.activeOnServer(id).then(setServerBusy).catch(() => {});
+  };
+
   const resetForm = () => {
     setName(''); setDesc(''); setModelId(''); setServerId('');
     setStrategy('CONCAT'); setCkptId(''); setTrainParams({});
+    setServerBusy([]);
     setRows([{ dvId: '', role: 'TRAIN', weight: '1' }, { dvId: '', role: 'TEST', weight: '1' }]);
     setError('');
   };
@@ -223,7 +232,7 @@ function CreateExperimentModal({
                 <select
                   className={selectCls}
                   value={serverId}
-                  onChange={(e) => setServerId(e.target.value)}
+                  onChange={(e) => handleServerChange(e.target.value)}
                   required
                 >
                   <option value="">{t('exp_server_hint')}</option>
@@ -238,9 +247,22 @@ function CreateExperimentModal({
                   id="exp-server"
                   placeholder="gpu-node-01"
                   value={serverId}
-                  onChange={(e) => setServerId(e.target.value)}
+                  onChange={(e) => handleServerChange(e.target.value)}
                   required
                 />
+              )}
+              {serverBusy.length > 0 && (
+                <div className="flex items-start gap-2 mt-1 p-2.5 bg-amber-500/8 border border-amber-500/25 rounded-lg">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-400 leading-relaxed">
+                    Server này đang bận:
+                    {serverBusy.map((e) => (
+                      <span key={e.id} className="block font-medium">
+                        · {e.name} <span className="font-normal opacity-70">({e.status})</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             <div className="flex flex-col gap-1.5">

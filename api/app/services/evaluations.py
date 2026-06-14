@@ -131,7 +131,8 @@ def create_evaluation(db: Session, payload: dict) -> dict:
     }
 
     if CELERY_AVAILABLE:
-        task = celery_app.send_task("tasks.run_evaluation", args=[job_payload])
+        queue = f"server_{server_id}" if str(server_id).isdigit() else "celery"
+        task = celery_app.send_task("tasks.run_evaluation", args=[job_payload], queue=queue)
         repo.update_status(db, ev, "PENDING", celery_task_id=task.id)
 
     return _serialize(ev)

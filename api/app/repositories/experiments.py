@@ -49,6 +49,18 @@ def list_by_project(db: Session, project_id: int) -> list[Experiment]:
     )
 
 
+def list_active_by_server(db: Session, server_id: str) -> list[Experiment]:
+    return (
+        db.query(Experiment)
+        .filter(
+            Experiment.server_id == server_id,
+            Experiment.status.in_(["PENDING", "DOWNLOADING", "RUNNING"]),
+        )
+        .order_by(Experiment.created_at.desc())
+        .all()
+    )
+
+
 def update_status(
     db: Session,
     exp: Experiment,

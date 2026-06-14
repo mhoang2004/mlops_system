@@ -36,7 +36,8 @@ def _wait_for_api(timeout: int = 120) -> None:
     log.warning("[startup] API did not respond in %ds — proceeding anyway.", timeout)
 
 
-def _register_self_as_server() -> None:
+def _register_self_as_server() -> int | None:
+    """Register this worker as a server. Returns the server DB ID (for queue routing)."""
     name = os.getenv("WORKER_NAME", "local-worker")
     host = os.getenv("WORKER_HOST", "localhost")
     nvidia_devices = os.getenv("NVIDIA_VISIBLE_DEVICES", "void")
@@ -55,22 +56,24 @@ def _register_self_as_server() -> None:
         r = requests.post(f"{API_URL}/servers/", json=payload, timeout=10)
         log.info("[startup] POST /servers/ → %d %s", r.status_code, r.text[:200])
         if r.status_code == 201:
-            log.info("[startup] Registered self as server '%s' (id=%s).", name, r.json().get("id"))
+            server_id = r.json().get("id")
+            log.info("[startup] Registered self as server '%s' (id=%s).", name, server_id)
+            return server_id
         elif r.status_code == 409:
             log.info("[startup] Server '%s' already exists, updating...", name)
             list_r = requests.get(f"{API_URL}/servers/", timeout=10)
-            log.info("[startup] GET /servers/ → %d", list_r.status_code)
             existing = next((s for s in list_r.json() if s["name"] == name), None)
             if existing:
-                patch_r = requests.patch(f"{API_URL}/servers/{existing['id']}", json=payload, timeout=10)
-                log.info("[startup] PATCH /servers/%d → %d", existing["id"], patch_r.status_code)
-                log.info("[startup] Updated server registration for '%s'.", name)
+                requests.patch(f"{API_URL}/servers/{existing['id']}", json=payload, timeout=10)
+                log.info("[startup] Updated server registration for '%s' (id=%s).", name, existing["id"])
+                return existing["id"]
             else:
                 log.warning("[startup] 409 but server '%s' not found in list.", name)
         else:
             log.warning("[startup] Server self-registration returned %d: %s", r.status_code, r.text[:500])
     except Exception as exc:
         log.exception("[startup] Server self-registration failed: %s", exc)
+    return None
 
 
 def main() -> None:
@@ -85,12 +88,22 @@ def main() -> None:
         log.error("[startup] Trainer registration failed: %s", exc)
 
     log.info("[startup] Registering self as server...")
-    _register_self_as_server()
+    server_id = _register_self_as_server()
 
     # Hand off to the Celery worker (or any command passed via argv)
     if len(sys.argv) > 1:
-        log.info("[startup] Exec: %s", " ".join(sys.argv[1:]))
-        os.execvp(sys.argv[1], sys.argv[1:])
+        celery_cmd = list(sys.argv[1:])
+        if server_id is not None:
+            # Add a dedicated queue "server_{id}" so tasks are routed to this worker only
+            dedicated_queue = f"server_{server_id}"
+            if "-Q" in celery_cmd:
+                q_idx = celery_cmd.index("-Q") + 1
+                celery_cmd[q_idx] = f"{celery_cmd[q_idx]},{dedicated_queue}"
+            else:
+                celery_cmd += ["-Q", f"celery,{dedicated_queue}"]
+            log.info("[startup] Worker queues: celery + %s", dedicated_queue)
+        log.info("[startup] Exec: %s", " ".join(celery_cmd))
+        os.execvp(celery_cmd[0], celery_cmd)
 
 
 if __name__ == "__main__":

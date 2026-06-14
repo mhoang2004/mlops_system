@@ -67,6 +67,13 @@ def list_experiments(project_id: int, db: Session = Depends(get_db)):
     return service.list_experiments(db, project_id)
 
 
+@router.get("/active-on-server")
+def active_on_server(server_id: str, db: Session = Depends(get_db)):
+    from ..repositories import experiments as repo
+    exps = repo.list_active_by_server(db, server_id)
+    return [{"id": e.id, "name": e.name, "status": e.status, "project_id": e.project_id} for e in exps]
+
+
 @router.get("/{experiment_id}")
 def get_experiment(experiment_id: int, db: Session = Depends(get_db)):
     return service.get_experiment(db, experiment_id)
