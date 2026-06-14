@@ -3,5 +3,6 @@ __pycache__/
 *.py[cod]
 todo.txt
 .env
+.env.worker
 *.code-workspace
 CLAUDE.md

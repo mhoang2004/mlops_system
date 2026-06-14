@@ -1,0 +1,75 @@
+# docker-compose.worker.yml
+# Chạy trên máy worker (máy 2).
+# Máy này chỉ chạy Celery worker + monitoring exporters.
+# Tất cả services còn lại (DB, Redis, MinIO, API) vẫn chạy trên máy 1.
+#
+# Setup:
+#   cp .env.worker.example .env.worker
+#   # Sửa các giá trị trong .env.worker
+#   docker compose -f docker-compose.worker.yml up --build -d
+
+services:
+
+  training-worker:
+    build:
+      context: ./trainingworker
+      dockerfile: Dockerfile
+    container_name: mlops-training-worker
+    # runtime: nvidia   # bỏ comment nếu máy có GPU NVIDIA + NVIDIA Container Toolkit
+    volumes:
+      - ./trainingworker:/app
+      - ./common:/app/common
+      - worker_data:/workspace/experiments
+    env_file: .env.worker
+    # network_mode: host cho phép container reach Tailscale IP của máy chủ trực tiếp.
+    # Không dùng bridge network vì Tailscale chạy trên host, không trong Docker.
+    network_mode: host
+    restart: unless-stopped
+    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=2 -Q celery
+
+  # ── Node Exporter ─────────────────────────────────────────────────────────────
+  # CPU, RAM, Disk, Network của host. Prometheus trên máy 1 scrape :9100.
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: mlops-node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    command:
+      - --path.rootfs=/host
+
+  # ── cAdvisor ─────────────────────────────────────────────────────────────────
+  # Per-container CPU và RAM. Prometheus trên máy 1 scrape :8080.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: mlops-cadvisor
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  # ── DCGM Exporter ─────────────────────────────────────────────────────────────
+  # GPU metrics (util, VRAM, temp, power). Chỉ dùng trên máy có GPU NVIDIA.
+  # Yêu cầu: NVIDIA Container Toolkit đã cài, uncomment runtime: nvidia ở trên.
+  # Prometheus scrape :9400.
+  # dcgm-exporter:
+  #   image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
+  #   container_name: mlops-dcgm-exporter
+  #   restart: unless-stopped
+  #   runtime: nvidia
+  #   network_mode: host
+  #   environment:
+  #     NVIDIA_VISIBLE_DEVICES: all
+  #   cap_add:
+  #     - SYS_ADMIN
+
+volumes:
+  worker_data:
