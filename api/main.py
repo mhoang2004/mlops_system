@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+import logging
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.database import Base, engine
 from app.models import projects, dataset_versions, checkpoints, experiments, servers, trainers, ml_models  # noqa: F401
@@ -10,6 +14,8 @@ from app.routers import experiments as exp_router
 from app.routers import servers as srv_router
 from app.routers import trainers as trainer_router
 from app.routers import ml_models as mlmodel_router
+
+log = logging.getLogger("api")
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,10 +28,16 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    log.error("Unhandled exception on %s %s:\n%s", request.method, request.url, traceback.format_exc())
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 app.include_router(projects_router.router)
 app.include_router(dv_router.router)

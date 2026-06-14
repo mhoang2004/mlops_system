@@ -27,6 +27,7 @@ def create(
     description: Optional[str],
     gpu_count: int,
     gpu_type: Optional[str],
+    server_type: str = 'cpu',
 ) -> Server:
     server = Server(
         name=name,
@@ -37,6 +38,7 @@ def create(
         description=description,
         gpu_count=gpu_count,
         gpu_type=gpu_type,
+        server_type=server_type,
         status="UNKNOWN",
     )
     db.add(server)
@@ -56,6 +58,7 @@ def update(
     description: Optional[str],
     gpu_count: Optional[int],
     gpu_type: Optional[str],
+    server_type: Optional[str] = None,
 ) -> Server:
     if name is not None:
         server.name = name
@@ -73,6 +76,8 @@ def update(
         server.gpu_count = gpu_count
     if gpu_type is not None:
         server.gpu_type = gpu_type
+    if server_type is not None:
+        server.server_type = server_type
     db.commit()
     db.refresh(server)
     return server

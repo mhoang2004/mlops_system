@@ -9,6 +9,7 @@ import { DatasetsPage } from './pages/project/DatasetsPage';
 import { DatasetDetailPage } from './pages/project/DatasetDetailPage';
 import { ProjectCheckpointsPage } from './pages/project/ProjectCheckpointsPage';
 import { ExperimentsPage } from './pages/project/ExperimentsPage';
+import { ModelsPage } from './pages/project/ModelsPage';
 import { TasksPage } from './pages/project/TasksPage';
 import { EvaluationPage } from './pages/project/EvaluationPage';
 import { LangProvider } from './contexts/LangContext';
@@ -32,12 +33,13 @@ function AppShell() {
           {/* Project routes — ProjectLayout renders sub-sidebar + <Outlet /> */}
           <Route path="/projects/:id" element={<ProjectLayout />}>
             <Route index element={<Navigate to="datasets" replace />} />
-            <Route path="datasets"          element={<DatasetsPage />} />
-            <Route path="datasets/:dvId"   element={<DatasetDetailPage />} />
-            <Route path="checkpoints" element={<ProjectCheckpointsPage />} />
-            <Route path="experiments" element={<ExperimentsPage />} />
-            <Route path="tasks"       element={<TasksPage />} />
-            <Route path="evaluation"  element={<EvaluationPage />} />
+            <Route path="datasets"        element={<DatasetsPage />} />
+            <Route path="datasets/:dvId"  element={<DatasetDetailPage />} />
+            <Route path="checkpoints"     element={<ProjectCheckpointsPage />} />
+            <Route path="models"          element={<ModelsPage />} />
+            <Route path="experiments"     element={<ExperimentsPage />} />
+            <Route path="tasks"           element={<TasksPage />} />
+            <Route path="evaluation"      element={<EvaluationPage />} />
           </Route>
         </Routes>
       </div>

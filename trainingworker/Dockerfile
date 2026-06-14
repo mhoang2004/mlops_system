@@ -51,11 +51,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD celery -A celery_app inspect ping \
         -d "celery@$$HOSTNAME" --timeout 5 > /dev/null 2>&1 || exit 1
 
+# startup.py: waits for API → registers trainers → exec celery worker
 # --concurrency=1  : one training job at a time (CPU memory)
 # --without-gossip : reduces Redis noise in single-worker setups
-CMD ["celery", "-A", "celery_app", "worker", \
-     "--loglevel=info", \
-     "--concurrency=1", \
-     "-Q", "celery", \
-     "--without-gossip", \
-     "--without-mingle"]
+CMD ["python", "/app/startup.py", \
+     "celery", "-A", "celery_app", "worker", \
+     "--loglevel=info", "--concurrency=1", \
+     "-Q", "celery", "--without-gossip", "--without-mingle"]

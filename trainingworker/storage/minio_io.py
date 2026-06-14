@@ -58,6 +58,11 @@ class MinioIO:
             raise
         return local_path
 
+    def _ensure_bucket(self, bucket_name: str) -> None:
+        if not self._client.bucket_exists(bucket_name):
+            self._client.make_bucket(bucket_name)
+            logger.info("Created bucket: %s", bucket_name)
+
     def upload_file(
         self,
         local_path: Path,
@@ -68,6 +73,7 @@ class MinioIO:
     ) -> str:
         """Upload local file to MinIO. Returns the minio_key."""
         b = bucket or self.ckpt_bucket
+        self._ensure_bucket(b)
         size = local_path.stat().st_size
         with open(local_path, "rb") as f:
             self._client.put_object(b, minio_key, f, length=size, content_type=content_type)

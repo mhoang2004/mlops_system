@@ -56,6 +56,7 @@ export function ProjectSubSidebar({ projectId, projectName }: Props) {
 
         {/* Model section */}
         <SectionLabel>Model</SectionLabel>
+        <SideNavItem to={`${base}/models`}      icon={Box} indent>Models</SideNavItem>
         <SideNavItem to={`${base}/checkpoints`} icon={Cpu} indent>Checkpoints</SideNavItem>
 
         {/* Analysis section */}

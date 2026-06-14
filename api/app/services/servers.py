@@ -71,11 +71,13 @@ def _node_metrics(parsed: Dict) -> Dict[str, Any]:
     load5 = _first(parsed, "node_load5")
     load15 = _first(parsed, "node_load15")
     if load1 is not None or core_count:
+        load_pct = round(load1 / core_count * 100, 1) if (load1 is not None and core_count) else None
         out["cpu"] = {
             "core_count": core_count or None,
             "load_avg_1m": round(load1, 2) if load1 is not None else None,
             "load_avg_5m": round(load5, 2) if load5 is not None else None,
             "load_avg_15m": round(load15, 2) if load15 is not None else None,
+            "load_percent": load_pct,
         }
 
     # Disks
@@ -215,12 +217,13 @@ def create_server(
     description: Optional[str] = None,
     gpu_count: int = 0,
     gpu_type: Optional[str] = None,
+    server_type: str = 'cpu',
 ) -> Server:
     if repo.get_by_name(db, name):
         raise HTTPException(status_code=409, detail=f"Server name '{name}' already exists")
     return repo.create(
         db, name, host, node_exporter_port, cadvisor_port,
-        dcgm_exporter_port, description, gpu_count, gpu_type,
+        dcgm_exporter_port, description, gpu_count, gpu_type, server_type,
     )
 
 
@@ -235,13 +238,14 @@ def update_server(
     description: Optional[str],
     gpu_count: Optional[int],
     gpu_type: Optional[str],
+    server_type: Optional[str] = None,
 ) -> Server:
     server = get_server(db, server_id)
     if name and name != server.name and repo.get_by_name(db, name):
         raise HTTPException(status_code=409, detail=f"Server name '{name}' already exists")
     return repo.update(
         db, server, name, host, node_exporter_port, cadvisor_port,
-        dcgm_exporter_port, description, gpu_count, gpu_type,
+        dcgm_exporter_port, description, gpu_count, gpu_type, server_type,
     )
 
 

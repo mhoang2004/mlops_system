@@ -3,12 +3,12 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FlaskConical, Plus, Trash2, Loader2, AlertCircle, Calendar,
-  XCircle, ChevronDown, ChevronUp, BarChart3, Clock, Server as ServerIcon,
+  XCircle, ChevronDown, ChevronUp, BarChart3, Clock, Server as ServerIcon, ExternalLink,
 } from 'lucide-react';
 import {
   api,
   type Experiment, type ExperimentDataset, type ExperimentStatus,
-  type TrainerSchema, type DatasetVersion, type Server,
+  type DatasetVersion, type Server, type MLModel, type Checkpoint,
 } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -18,6 +18,8 @@ import { Input } from '../../components/ui/Input';
 import { TrainParamsForm, defaultsFromSchema } from '../../components/TrainParamsForm';
 import { formatDate } from '../../lib/utils';
 import { useLang } from '../../contexts/LangContext';
+
+const MLFLOW_URL = (import.meta.env.VITE_MLFLOW_URL as string | undefined) ?? 'http://localhost:5000';
 
 // ── Status helpers ───────────────────────────────────────────────────────────
 
@@ -32,8 +34,6 @@ const STATUS_BADGE: Record<ExperimentStatus, 'muted' | 'info' | 'default' | 'suc
 
 const ACTIVE_STATUSES: ExperimentStatus[] = ['PENDING', 'DOWNLOADING', 'RUNNING'];
 
-// ── Shared select style ──────────────────────────────────────────────────────
-
 const selectCls =
   'w-full px-3 py-2.5 rounded-lg text-sm text-zinc-100 ' +
   'bg-zinc-900/60 border border-zinc-800 outline-none ' +
@@ -43,13 +43,6 @@ const selectCls =
 // ── Create modal ─────────────────────────────────────────────────────────────
 
 interface DvRow { dvId: string; role: 'TRAIN' | 'VALIDATION' | 'TEST'; weight: string }
-
-const TRAINER_OPTIONS = [
-  { value: 'yolo',         label: 'YOLO — Object Detection' },
-  { value: 'resnet',       label: 'ResNet — Classification' },
-  { value: 'efficientdet', label: 'EfficientDet — Object Detection' },
-  { value: 'custom',       label: 'Custom' },
-];
 
 function CreateExperimentModal({
   projectId,
@@ -62,54 +55,70 @@ function CreateExperimentModal({
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
-  const [dvList, setDvList]   = useState<DatasetVersion[]>([]);
-  const [servers, setServers] = useState<Server[]>([]);
+  const [dvList, setDvList]       = useState<DatasetVersion[]>([]);
+  const [servers, setServers]     = useState<Server[]>([]);
+  const [mlModels, setMlModels]   = useState<MLModel[]>([]);
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
 
-  // Schema for dynamic params form
-  const [schema, setSchema]         = useState<TrainerSchema | null>(null);
-  const [schemaLoading, setSchemaLoading] = useState(false);
-
-  const [name, setName]       = useState('');
-  const [desc, setDesc]       = useState('');
-  const [trainer, setTrainer] = useState('yolo');
-  const [serverId, setServerId] = useState('');
-  const [strategy, setStrategy] = useState('CONCAT');
-  const [ckptId, setCkptId]   = useState('');
+  const [name, setName]           = useState('');
+  const [desc, setDesc]           = useState('');
+  const [modelId, setModelId]     = useState('');
+  const [serverId, setServerId]   = useState('');
+  const [strategy, setStrategy]   = useState('CONCAT');
+  const [ckptId, setCkptId]       = useState('');
   const [trainParams, setTrainParams] = useState<Record<string, unknown>>({});
-  const [rows, setRows]       = useState<DvRow[]>([
+  const [rows, setRows] = useState<DvRow[]>([
     { dvId: '', role: 'TRAIN', weight: '1' },
     { dvId: '', role: 'TEST',  weight: '1' },
   ]);
 
-  // Load dataset versions, servers, and param schema when modal opens
   useEffect(() => {
     if (!open) return;
     api.datasetVersions.list(projectId).then(setDvList).catch(() => {});
     api.servers.list().then(setServers).catch(() => {});
+    api.checkpoints.list(projectId).then(setCheckpoints).catch(() => {});
+    api.mlModels.list(projectId).then((models) => {
+      setMlModels(models);
+      if (models.length > 0 && !modelId) {
+        const first = models[0];
+        setModelId(String(first.id));
+        if (first.trainer?.train_params_schema) {
+          setTrainParams(defaultsFromSchema(first.trainer.train_params_schema));
+        }
+      }
+    }).catch(() => {});
   }, [open, projectId]);
 
-  // Re-fetch schema when trainer type changes
-  useEffect(() => {
-    if (!open) return;
-    setSchemaLoading(true);
-    api.experiments.trainerSchema(trainer)
-      .then((s) => {
-        setSchema(s);
-        setTrainParams(defaultsFromSchema(s));
-      })
-      .catch(() => setSchema(null))
-      .finally(() => setSchemaLoading(false));
-  }, [open, trainer]);
+  // When model changes, load its trainer schema for the form
+  const handleModelChange = (id: string) => {
+    setModelId(id);
+    const m = mlModels.find((x) => String(x.id) === id);
+    if (m?.trainer?.train_params_schema) {
+      setTrainParams(defaultsFromSchema(m.trainer.train_params_schema));
+    } else {
+      setTrainParams({});
+    }
+  };
+
+  const selectedModel = mlModels.find((m) => String(m.id) === modelId);
+  const schema = selectedModel?.trainer?.train_params_schema ?? null;
 
   const addRow = () => setRows((r) => [...r, { dvId: '', role: 'VALIDATION', weight: '1' }]);
   const removeRow = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
   const updateRow = (i: number, patch: Partial<DvRow>) =>
-    setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+    setRows((r) => r.map((row, idx) => {
+      if (idx !== i) return row;
+      const merged = { ...row, ...patch };
+      if (patch.role && patch.role !== 'TRAIN') merged.weight = '1';
+      return merged;
+    }));
 
-  const handleTrainerChange = (v: string) => setTrainer(v);
+  const filteredCheckpoints = checkpoints.filter(
+    (c) => c.source === 'pretrained' || (modelId && c.ml_model_id === parseInt(modelId)),
+  );
 
   const resetForm = () => {
-    setName(''); setDesc(''); setTrainer('yolo'); setServerId('');
+    setName(''); setDesc(''); setModelId(''); setServerId('');
     setStrategy('CONCAT'); setCkptId(''); setTrainParams({});
     setRows([{ dvId: '', role: 'TRAIN', weight: '1' }, { dvId: '', role: 'TEST', weight: '1' }]);
     setError('');
@@ -119,6 +128,7 @@ function CreateExperimentModal({
     e.preventDefault();
     setError('');
 
+    if (!modelId) { setError('Vui lòng chọn ML model'); return; }
     const hasTrainRole = rows.some((r) => r.role === 'TRAIN' && r.dvId);
     const hasTestRole  = rows.some((r) => r.role === 'TEST'  && r.dvId);
     if (!hasTrainRole || !hasTestRole) { setError(t('exp_val_datasets')); return; }
@@ -126,11 +136,11 @@ function CreateExperimentModal({
 
     setLoading(true);
     try {
-      const exp = await api.experiments.create({
+      const result = await api.experiments.create({
         project_id:         projectId,
         name:               name.trim(),
         description:        desc.trim() || undefined,
-        trainer_type:       trainer,
+        ml_model_id:        parseInt(modelId),
         server_id:          serverId,
         datasets:           rows.map((r) => ({
           dataset_version_id: parseInt(r.dvId),
@@ -141,6 +151,8 @@ function CreateExperimentModal({
         pretrained_ckpt_id: ckptId ? parseInt(ckptId) : null,
         train_params:       trainParams,
       });
+      // API returns { experiment, warnings } or the experiment directly
+      const exp = (result as any).experiment ?? result as Experiment;
       onCreated(exp);
       setOpen(false);
       resetForm();
@@ -165,7 +177,7 @@ function CreateExperimentModal({
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-h-[72vh] overflow-y-auto pr-1">
 
-          {/* ── Basic info ────────────────────────────────────── */}
+          {/* ── Basic info ─────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <Input
               id="exp-name"
@@ -177,21 +189,31 @@ function CreateExperimentModal({
             />
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
-                {t('exp_trainer')}
+                ML Model
               </label>
-              <select
-                className={selectCls}
-                value={trainer}
-                onChange={(e) => handleTrainerChange(e.target.value)}
-              >
-                {TRAINER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              {mlModels.length === 0 ? (
+                <p className="text-xs text-zinc-600 italic px-1 pt-2">
+                  Chưa có model — tạo model trong tab Models trước
+                </p>
+              ) : (
+                <select
+                  className={selectCls}
+                  value={modelId}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  required
+                >
+                  <option value="">Chọn model...</option>
+                  {mlModels.map((m) => (
+                    <option key={m.id} value={String(m.id)}>
+                      {m.name}{m.trainer ? ` (${m.trainer.name})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
-          {/* ── Server + Strategy ─────────────────────────────── */}
+          {/* ── Server + Strategy ──────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
@@ -225,14 +247,10 @@ function CreateExperimentModal({
               <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
                 {t('exp_strategy')}
                 <span className="ml-2 normal-case text-zinc-700 font-normal tracking-normal">
-                  — cách ghép nhiều datasets
+                  — cách ghép các bộ TRAIN
                 </span>
               </label>
-              <select
-                className={selectCls}
-                value={strategy}
-                onChange={(e) => setStrategy(e.target.value)}
-              >
+              <select className={selectCls} value={strategy} onChange={(e) => setStrategy(e.target.value)}>
                 <option value="CONCAT">CONCAT — gộp tuần tự</option>
                 <option value="WEIGHTED">WEIGHTED — lấy mẫu theo weight</option>
                 <option value="ROUND_ROBIN">ROUND_ROBIN — xoay vòng</option>
@@ -240,7 +258,6 @@ function CreateExperimentModal({
             </div>
           </div>
 
-          {/* Description */}
           <Input
             id="exp-desc"
             label={t('exp_desc')}
@@ -249,17 +266,28 @@ function CreateExperimentModal({
             onChange={(e) => setDesc(e.target.value)}
           />
 
-          {/* Pretrained checkpoint */}
-          <Input
-            id="exp-ckpt"
-            label={t('exp_pretrained')}
-            type="number"
-            placeholder="Để trống nếu không dùng"
-            value={ckptId}
-            onChange={(e) => setCkptId(e.target.value)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
+              {t('exp_pretrained')}
+            </label>
+            <select
+              className={selectCls}
+              value={ckptId}
+              onChange={(e) => setCkptId(e.target.value)}
+            >
+              <option value="">— Không dùng pretrained —</option>
+              {filteredCheckpoints.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  [{c.source === 'pretrained' ? 'Pretrained' : 'Experiment'}] {c.name}
+                  {c.metrics && Object.keys(c.metrics).length > 0
+                    ? ` (${Object.entries(c.metrics).slice(0, 2).map(([k, v]) => `${k}=${v}`).join(', ')})`
+                    : ''}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* ── Datasets ──────────────────────────────────────── */}
+          {/* ── Datasets ───────────────────────────────────────────── */}
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
@@ -278,42 +306,41 @@ function CreateExperimentModal({
               <p className="text-xs text-zinc-600 italic">{t('exp_no_datasets')}</p>
             )}
 
-            <div className="grid grid-cols-[1fr_130px_64px_32px] gap-2 px-0.5">
-              {['Dataset version', 'Role', 'Weight', ''].map((h) => (
-                <p key={h} className="text-[10px] text-zinc-700 uppercase tracking-wider">{h}</p>
-              ))}
+            <div className={`grid gap-2 px-0.5 ${strategy === 'WEIGHTED' ? 'grid-cols-[1fr_130px_72px_32px]' : 'grid-cols-[1fr_130px_32px]'}`}>
+              <p className="text-[10px] text-zinc-700 uppercase tracking-wider">Dataset version</p>
+              <p className="text-[10px] text-zinc-700 uppercase tracking-wider">Role</p>
+              {strategy === 'WEIGHTED' && (
+                <p className="text-[10px] text-zinc-700 uppercase tracking-wider">Weight</p>
+              )}
+              <p />
             </div>
 
             <div className="flex flex-col gap-2">
               {rows.map((row, i) => (
-                <div key={i} className="grid grid-cols-[1fr_130px_64px_32px] gap-2 items-center">
-                  <select
-                    className={selectCls}
-                    value={row.dvId}
-                    onChange={(e) => updateRow(i, { dvId: e.target.value })}
-                  >
+                <div key={i} className={`grid gap-2 items-center ${strategy === 'WEIGHTED' ? 'grid-cols-[1fr_130px_72px_32px]' : 'grid-cols-[1fr_130px_32px]'}`}>
+                  <select className={selectCls} value={row.dvId} onChange={(e) => updateRow(i, { dvId: e.target.value })}>
                     <option value="">{t('exp_dv_select')}</option>
                     {dvList.map((dv) => (
-                      <option key={dv.id} value={String(dv.id)}>
-                        {dv.name} v{dv.version}
-                      </option>
+                      <option key={dv.id} value={String(dv.id)}>{dv.name} v{dv.version}</option>
                     ))}
                   </select>
-                  <select
-                    className={selectCls}
-                    value={row.role}
-                    onChange={(e) => updateRow(i, { role: e.target.value as DvRow['role'] })}
-                  >
+                  <select className={selectCls} value={row.role} onChange={(e) => updateRow(i, { role: e.target.value as DvRow['role'] })}>
                     <option value="TRAIN">TRAIN</option>
                     <option value="VALIDATION">VALIDATION</option>
                     <option value="TEST">TEST</option>
                   </select>
-                  <input
-                    type="number" min="0.01" step="0.1"
-                    value={row.weight}
-                    onChange={(e) => updateRow(i, { weight: e.target.value })}
-                    className={`${selectCls} text-center px-2`}
-                  />
+                  {strategy === 'WEIGHTED' && (
+                    row.role === 'TRAIN' ? (
+                      <input
+                        type="number" min="1" step="1"
+                        value={row.weight}
+                        onChange={(e) => updateRow(i, { weight: e.target.value })}
+                        className={`${selectCls} text-center px-2`}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center text-sm text-zinc-700 select-none">—</div>
+                    )
+                  )}
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
@@ -327,29 +354,18 @@ function CreateExperimentModal({
             </div>
           </div>
 
-          {/* ── Training params (dynamic form) ────────────────── */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest shrink-0">
-                {t('exp_train_params')}
-              </p>
-              <div className="flex-1 h-px bg-zinc-800" />
-            </div>
-
-            {schemaLoading && (
-              <div className="flex items-center gap-2 py-4 text-zinc-600 text-xs">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading params...
+          {/* ── Training params (dynamic form) ─────────────────────── */}
+          {schema && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest shrink-0">
+                  {t('exp_train_params')}
+                </p>
+                <div className="flex-1 h-px bg-zinc-800" />
               </div>
-            )}
-
-            {!schemaLoading && schema && (
-              <TrainParamsForm
-                schema={schema}
-                values={trainParams}
-                onChange={setTrainParams}
-              />
-            )}
-          </div>
+              <TrainParamsForm schema={schema} values={trainParams} onChange={setTrainParams} />
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-xs">
@@ -407,10 +423,9 @@ function DetailModal({
       {exp && (
         <div className="flex flex-col gap-6 max-h-[70vh] overflow-y-auto pr-1">
 
-          {/* Info grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             {([
-              ['Trainer',       exp.trainer_type],
+              ['Model ID',      exp.ml_model_id],
               ['Server',        exp.server_id],
               ['Strategy',      exp.sampling_strategy],
               ['Status',        exp.status],
@@ -428,7 +443,6 @@ function DetailModal({
             <p className="text-sm text-zinc-500 leading-relaxed">{exp.description}</p>
           )}
 
-          {/* Datasets table */}
           {exp.datasets && exp.datasets.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
@@ -461,7 +475,6 @@ function DetailModal({
             </div>
           )}
 
-          {/* Metrics */}
           {exp.metrics && Object.keys(exp.metrics).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
@@ -478,7 +491,6 @@ function DetailModal({
             </div>
           )}
 
-          {/* Error */}
           {exp.error_message && (
             <div className="flex flex-col gap-1.5">
               <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
@@ -490,7 +502,6 @@ function DetailModal({
             </div>
           )}
 
-          {/* Train params */}
           <div className="flex flex-col gap-1.5">
             <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
               {t('exp_train_params')}
@@ -500,7 +511,6 @@ function DetailModal({
             </pre>
           </div>
 
-          {/* Timeline */}
           <div className="flex flex-col gap-1.5">
             <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
               {t('exp_timeline')}
@@ -570,19 +580,15 @@ function ExperimentCard({
 
   return (
     <Card className="p-6 flex items-start gap-5 hover:border-zinc-700/60 transition-colors duration-150">
-
-      {/* Status icon */}
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${iconBg}`}>
         <FlaskConical className={`w-4.5 h-4.5 ${iconColor}`} strokeWidth={2} />
       </div>
 
-      {/* Body */}
       <div className="flex-1 min-w-0 space-y-2.5">
-
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="text-sm font-semibold text-zinc-100">{exp.name}</span>
           <Badge variant={STATUS_BADGE[exp.status]}>{exp.status}</Badge>
-          <Badge variant="muted">{exp.trainer_type}</Badge>
+          <Badge variant="muted">model #{exp.ml_model_id}</Badge>
         </div>
 
         {exp.description && (
@@ -598,7 +604,6 @@ function ExperimentCard({
           </span>
         </div>
 
-        {/* Metrics (COMPLETED) */}
         {exp.metrics && Object.keys(exp.metrics).length > 0 && (
           <div className="flex items-center gap-2 flex-wrap pt-0.5">
             {Object.entries(exp.metrics).slice(0, 4).map(([k, v]) => (
@@ -607,12 +612,10 @@ function ExperimentCard({
           </div>
         )}
 
-        {/* Error (FAILED) */}
         {exp.error_message && (
           <p className="text-xs text-amber-500/80 font-mono line-clamp-1">{exp.error_message}</p>
         )}
 
-        {/* Train params toggle */}
         <button
           type="button"
           onClick={() => setShowParams((p) => !p)}
@@ -638,7 +641,6 @@ function ExperimentCard({
         </p>
       </div>
 
-      {/* Actions */}
       <div className="shrink-0 flex items-center gap-2 pt-0.5">
         <Button variant="ghost" size="sm" onClick={() => onDetail(exp.id)}>
           {t('exp_detail')}
@@ -647,9 +649,7 @@ function ExperimentCard({
           <Button
             variant="ghost"
             size="sm"
-            icon={cancelling
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <XCircle className="w-3.5 h-3.5" />}
+            icon={cancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
             onClick={handleCancel}
             disabled={cancelling}
           >
@@ -659,9 +659,7 @@ function ExperimentCard({
         <Button
           variant="danger"
           size="sm"
-          icon={deleting
-            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            : <Trash2 className="w-3.5 h-3.5" />}
+          icon={deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
           onClick={handleDelete}
           disabled={deleting || isActive}
         >
@@ -700,8 +698,6 @@ export function ExperimentsPage() {
 
   return (
     <div className="flex flex-col gap-12">
-
-      {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
@@ -711,12 +707,16 @@ export function ExperimentsPage() {
             {t('exp_subtitle')}
           </p>
         </div>
-        <div className="shrink-0 pt-1">
+        <div className="shrink-0 flex items-center gap-2 pt-1">
+          <a href={MLFLOW_URL} target="_blank" rel="noopener noreferrer">
+            <Button variant="ghost" icon={<ExternalLink className="w-3.5 h-3.5" />}>
+              MLflow
+            </Button>
+          </a>
           <CreateExperimentModal projectId={projectId} onCreated={handleCreated} />
         </div>
       </div>
 
-      {/* ── Loading ────────────────────────────────────────────── */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-28 gap-3 text-zinc-600">
           <Loader2 className="w-6 h-6 animate-spin text-violet-500/50" />
@@ -724,7 +724,6 @@ export function ExperimentsPage() {
         </div>
       )}
 
-      {/* ── Error ──────────────────────────────────────────────── */}
       {error && (
         <div className="flex items-center gap-3 p-5 bg-red-500/8 border border-red-500/20 rounded-xl text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -732,7 +731,6 @@ export function ExperimentsPage() {
         </div>
       )}
 
-      {/* ── Empty ──────────────────────────────────────────────── */}
       {!loading && !error && experiments.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -747,7 +745,6 @@ export function ExperimentsPage() {
         </motion.div>
       )}
 
-      {/* ── List ───────────────────────────────────────────────── */}
       {!loading && experiments.length > 0 && (
         <div className="flex flex-col gap-4">
           <AnimatePresence>
@@ -771,7 +768,6 @@ export function ExperimentsPage() {
         </div>
       )}
 
-      {/* ── Detail modal ───────────────────────────────────────── */}
       {detailId !== null && (
         <DetailModal
           experimentId={detailId}

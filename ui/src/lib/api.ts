@@ -80,6 +80,29 @@ export const api = {
     delete: (id: number) => request<void>(`/checkpoints/${id}`, { method: 'DELETE' }),
   },
 
+  // ── Trainers ───────────────────────────────────────────────────────────────
+
+  trainers: {
+    list: () => request<Trainer[]>('/trainers/'),
+    get: (id: number) => request<Trainer>(`/trainers/${id}`),
+  },
+
+  // ── ML Models ──────────────────────────────────────────────────────────────
+
+  mlModels: {
+    list: (projectId: number) => request<MLModel[]>(`/ml-models/?project_id=${projectId}`),
+    get: (id: number) => request<MLModel>(`/ml-models/${id}`),
+    create: (body: { project_id: number; trainer_id: number; name: string; description?: string }) =>
+      request<MLModel>('/ml-models/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    delete: (id: number) => request<void>(`/ml-models/${id}`, { method: 'DELETE' }),
+  },
+
+  // ── Experiments ────────────────────────────────────────────────────────────
+
   experiments: {
     list: (projectId: number) =>
       request<Experiment[]>(`/experiments/?project_id=${projectId}`),
@@ -88,7 +111,7 @@ export const api = {
       project_id: number;
       name: string;
       description?: string;
-      trainer_type: string;
+      ml_model_id: number;
       server_id: string;
       datasets: { dataset_version_id: number; role: string; sampling_weight: number }[];
       sampling_strategy: string;
@@ -104,11 +127,9 @@ export const api = {
       request<Experiment>(`/experiments/${id}/cancel`, { method: 'POST' }),
     delete: (id: number) =>
       request<void>(`/experiments/${id}`, { method: 'DELETE' }),
-    trainerSchemas: () =>
-      request<Record<string, { trainer_type: string; display_name: string }>>('/experiments/trainer-schemas'),
-    trainerSchema: (trainerType: string) =>
-      request<TrainerSchema>(`/experiments/trainer-schemas/${trainerType}`),
   },
+
+  // ── Servers ────────────────────────────────────────────────────────────────
 
   servers: {
     list: () => request<Server[]>('/servers/'),
@@ -122,6 +143,7 @@ export const api = {
       description?: string;
       gpu_count?: number;
       gpu_type?: string;
+      server_type?: 'cpu' | 'gpu';
     }) =>
       request<Server>('/servers/', {
         method: 'POST',
@@ -141,6 +163,8 @@ export const api = {
       request<ServerMetrics>(`/servers/${id}/metrics?include_containers=${includeContainers}`),
   },
 };
+
+// ── Data types ────────────────────────────────────────────────────────────────
 
 export interface DatasetVersion {
   id: number;
@@ -172,6 +196,7 @@ export interface ImageListResponse {
 export interface Checkpoint {
   id: number;
   project_id: number;
+  ml_model_id?: number | null;
   experiment_id?: number;
   name: string;
   source: 'pretrained' | 'experiment';
@@ -181,33 +206,61 @@ export interface Checkpoint {
   updated_at: string;
 }
 
-// ── Experiments ────────────────────────────────────────────────────────────
+// ── Pydantic JSON Schema types (from model_json_schema()) ─────────────────────
 
-// ── Trainer param schema ────────────────────────────────────────────────────
+export interface PydanticProperty {
+  title?: string;
+  type?: string;
+  default?: unknown;
+  description?: string;
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  pattern?: string;
+  // UI hints embedded via json_schema_extra on Field(...)
+  ui_group?: string;
+  ui_options?: (string | number)[];
+  ui_hidden?: boolean;
+  // For Optional[X] types Pydantic emits anyOf
+  anyOf?: Array<{ type?: string; [key: string]: unknown }>;
+}
 
-export type ParamType = 'integer' | 'float' | 'boolean' | 'select' | 'string';
+export interface PydanticJsonSchema {
+  title?: string;
+  description?: string;
+  properties: Record<string, PydanticProperty>;
+  required?: string[];
+}
 
-export interface ParamDef {
+// ── Trainers ──────────────────────────────────────────────────────────────────
+
+export interface Trainer {
+  id: number;
   key: string;
-  label: string;
-  type: ParamType;
-  default: unknown;
-  description: string;
-  group: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: (string | number)[];
+  name: string;
+  description?: string;
+  train_params_schema: PydanticJsonSchema;
+  infer_params_schema?: PydanticJsonSchema;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface TrainerSchema {
-  trainer_type: string;
-  display_name: string;
-  description: string;
-  params: ParamDef[];
-  group_order: string[];
-  group_labels: Record<string, string>;
+// ── ML Models ─────────────────────────────────────────────────────────────────
+
+export interface MLModel {
+  id: number;
+  project_id: number;
+  trainer_id: number;
+  trainer?: Trainer;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
+// ── Experiments ───────────────────────────────────────────────────────────────
 
 export type ExperimentStatus = 'PENDING' | 'DOWNLOADING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type DatasetRole = 'TRAIN' | 'VALIDATION' | 'TEST';
@@ -224,9 +277,9 @@ export interface ExperimentDataset {
 export interface Experiment {
   id: number;
   project_id: number;
+  ml_model_id: number;
   name: string;
   description: string | null;
-  trainer_type: string;
   server_id: string;
   pretrained_ckpt_id: number | null;
   sampling_strategy: SamplingStrategy;
@@ -243,7 +296,7 @@ export interface Experiment {
   datasets?: ExperimentDataset[];
 }
 
-// ── Servers ────────────────────────────────────────────────────────────────
+// ── Servers ────────────────────────────────────────────────────────────────────
 
 export interface Server {
   id: number;
@@ -255,6 +308,7 @@ export interface Server {
   description: string | null;
   gpu_count: number;
   gpu_type: string | null;
+  server_type: 'cpu' | 'gpu';
   status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
   created_at: string;
   updated_at: string;
@@ -289,6 +343,7 @@ export interface ServerMetrics {
     load_avg_1m: number | null;
     load_avg_5m: number | null;
     load_avg_15m: number | null;
+    load_percent: number | null;
   };
   memory?: {
     total_bytes: number;

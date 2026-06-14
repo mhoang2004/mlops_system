@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -20,6 +20,7 @@ class ServerCreate(BaseModel):
     description: Optional[str] = None
     gpu_count: int = Field(default=0, ge=0)
     gpu_type: Optional[str] = None
+    server_type: Literal['cpu', 'gpu'] = 'cpu'
 
 
 class ServerUpdate(BaseModel):
@@ -31,6 +32,7 @@ class ServerUpdate(BaseModel):
     description: Optional[str] = None
     gpu_count: Optional[int] = Field(default=None, ge=0)
     gpu_type: Optional[str] = None
+    server_type: Optional[Literal['cpu', 'gpu']] = None
 
 
 @router.post("/", status_code=201)
@@ -45,6 +47,7 @@ def create_server(body: ServerCreate, db: Session = Depends(get_db)):
         description=body.description,
         gpu_count=body.gpu_count,
         gpu_type=body.gpu_type,
+        server_type=body.server_type,
     )
 
 
@@ -71,6 +74,7 @@ def update_server(server_id: int, body: ServerUpdate, db: Session = Depends(get_
         description=body.description,
         gpu_count=body.gpu_count,
         gpu_type=body.gpu_type,
+        server_type=body.server_type,
     )
 
 

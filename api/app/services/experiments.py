@@ -25,6 +25,27 @@ try:
 except ImportError:
     CELERY_AVAILABLE = False
 
+try:
+    from common.minio_client import get_minio_client as _get_minio
+    _MINIO_AVAILABLE = True
+except Exception:
+    _MINIO_AVAILABLE = False
+
+
+def _find_annotation_key(storage_path: str) -> Optional[str]:
+    """Return the first annotation file key under storage_path/annotations/, or None."""
+    if not _MINIO_AVAILABLE:
+        return None
+    try:
+        client = _get_minio()
+        prefix = f"{storage_path.rstrip('/')}/annotations/"
+        objs = list(client.list_objects("datasets", prefix=prefix, recursive=True))
+        if objs:
+            return objs[0].object_name
+    except Exception:
+        pass
+    return None
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -90,14 +111,16 @@ def create_experiment(db: Session, payload: dict) -> dict:
             )
 
         base = dv.storage_path.rstrip("/")
+        has_ann = dv.label_type == "human"
+        ann_key = _find_annotation_key(base) if has_ann else None
         resolved_datasets.append({
             "dataset_version_id": dv_id,
             "name":               f"{dv.name} {dv.version}",
             "role":               role,
             "sampling_weight":    weight,
             "images_prefix":      f"{base}/files/",
-            "annotations_key":    f"{base}/annotations/annotation.json",
-            "has_annotations":    dv.label_type == "human",
+            "annotations_key":    ann_key,
+            "has_annotations":    ann_key is not None,
         })
 
     # ── Validate pretrained checkpoint ────────────────────────────────────────

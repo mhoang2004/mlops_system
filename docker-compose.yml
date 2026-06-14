@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-common-env: &common-env
   CELERY_BROKER_URL:     redis://redis:6379/0
   CELERY_RESULT_BACKEND: redis://redis:6379/0
@@ -8,23 +6,11 @@ x-common-env: &common-env
   MINIO_SECRET_KEY:      ${MINIO_ROOT_PASSWORD}
   API_INTERNAL_URL:      http://api:8000
   EXPERIMENT_WORKDIR:    /workspace/experiments
-
-x-worker-common: &worker-common
-  volumes:
-    - ./trainingworker:/app
-    - ./common:/app/common
-    - worker_data:/workspace/experiments
-  networks:
-    - mlops_network
-  depends_on:
-    redis:
-      condition: service_healthy
-    minio:
-      condition: service_healthy
+  MLFLOW_TRACKING_URI:   http://mlflow:5000
 
 services:
 
-  # ── API ─────────────────────────────────────────────────────────────────────
+  # ── API ──────────────────────────────────────────────────────────────────────
   api:
     build: ./api
     ports:
@@ -47,44 +33,69 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
-  # ── Worker — CPU ─────────────────────────────────────────────────────────────
-  # Profile: cpu
-  # Usage : docker compose --profile cpu up
-  # Scale : docker compose --profile cpu up --scale worker-cpu=2
-  worker-cpu:
-    <<: *worker-common
-    profiles: ["cpu"]
+  # ── Training Worker ───────────────────────────────────────────────────────────
+  # Works on CPU by default.
+  # For GPU: install NVIDIA Container Toolkit, then uncomment `runtime` below
+  # and set NVIDIA_VISIBLE_DEVICES=all in your .env file.
+  training-worker:
     build:
       context: ./trainingworker
       dockerfile: Dockerfile
-    container_name: mlops-worker-cpu
+    container_name: mlops-training-worker
+    # runtime: nvidia   # ← uncomment on GPU machines (requires NVIDIA Container Toolkit)
+    volumes:
+      - ./trainingworker:/app
+      - ./common:/app/common
+      - worker_data:/workspace/experiments
     environment:
       <<: *common-env
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}   # void = no GPU; set to "all" for GPU
+      WORKER_NAME:  ${WORKER_NAME:-local}
+      WORKER_HOST:  ${WORKER_HOST:-host.docker.internal}
+    networks:
+      - mlops_network
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=2 -Q celery
 
-  # ── Worker — GPU ─────────────────────────────────────────────────────────────
-  # Profile: gpu
-  # Usage : docker compose --profile gpu up
-  #
-  # Prerequisites:
-  #   1. NVIDIA GPU driver >= 525
-  #   2. NVIDIA Container Toolkit installed & configured
-  #      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
-  #   3. /etc/docker/daemon.json contains:
-  #      { "default-runtime": "nvidia" }  OR use the `runtime` key below
-  worker-gpu:
-    <<: *worker-common
-    profiles: ["gpu"]
-    build:
-      context: ./trainingworker
-      dockerfile: Dockerfile.gpu      # pytorch/pytorch CUDA 12.1 base
-    container_name: mlops-worker-gpu
-    runtime: nvidia                   # requires nvidia-container-runtime
+  # ── MLflow ───────────────────────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlops-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
     environment:
-      <<: *common-env
-      TASK_SOFT_LIMIT_SEC:   43200
-      TASK_HARD_LIMIT_SEC:   46800
-      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}  # override per-job if needed
+      MLFLOW_ENABLE_PROXY_FIX: "true"
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    networks:
+      - mlops_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # ── Database ──────────────────────────────────────────────────────────────────
   db:
@@ -143,10 +154,71 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── node-exporter ────────────────────────────────────────────────────────────
+  # CPU, RAM, Disk, Network metrics cho máy host này.
+  # Scrape tại: http://localhost:9100/metrics
+  # NOTE: disabled on Windows — rslave mount propagation is not supported by Docker Desktop
+  # node-exporter:
+  #   image: prom/node-exporter:latest
+  #   container_name: mlops-node-exporter
+  #   restart: unless-stopped
+  #   network_mode: host
+  #   pid: host
+  #   volumes:
+  #     - /:/host:ro,rslave
+  #   command:
+  #     - --path.rootfs=/host
+
+  # ── cAdvisor ─────────────────────────────────────────────────────────────────
+  # Per-container CPU và RAM metrics.
+  # Scrape tại: http://localhost:8080/metrics
+  # NOTE: disabled on Windows — privileged system mounts (/sys, /dev/kmsg) not supported by Docker Desktop
+  # cadvisor:
+  #   image: gcr.io/cadvisor/cadvisor:latest
+  #   container_name: mlops-cadvisor
+  #   restart: unless-stopped
+  #   privileged: true
+  #   devices:
+  #     - /dev/kmsg
+  #   volumes:
+  #     - /:/rootfs:ro
+  #     - /var/run:/var/run:ro
+  #     - /sys:/sys:ro
+  #     - /var/lib/docker/:/var/lib/docker:ro
+  #     - /dev/disk/:/dev/disk:ro
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - mlops_network
+
+  # ── DCGM Exporter ─────────────────────────────────────────────────────────────
+  # GPU metrics (util, VRAM, temp, power). Chỉ dùng trên máy có GPU NVIDIA.
+  # Yêu cầu: NVIDIA Container Toolkit đã được cài trên host.
+  # Scrape tại: http://localhost:9400/metrics
+  # Để bật: uncomment toàn bộ block này và set NVIDIA_VISIBLE_DEVICES=all trong .env
+  # dcgm-exporter:
+  #   image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
+  #   container_name: mlops-dcgm-exporter
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   cap_add:
+  #     - SYS_ADMIN
+  #   ports:
+  #     - "9400:9400"
+  #   networks:
+  #     - mlops_network
+
 networks:
   mlops_network:
     driver: bridge
 
 volumes:
-  worker_data:   # experiment scratch space (images & checkpoints downloaded from MinIO)
-  redis_data:    # Redis AOF for Celery result persistence
+  worker_data:
+  redis_data:
+  mlflow_data:

@@ -76,15 +76,24 @@ export const translations = {
     cp_create: 'Tạo Project',
 
     // Experiments
+    // ML Models
+    mdl_title: 'Models',
+    mdl_subtitle: 'Quản lý các ML model trong project',
+    mdl_create: 'Tạo Model',
+    mdl_empty: 'Chưa có model nào',
+    mdl_empty_hint: 'Tạo model đầu tiên để bắt đầu training',
+    mdl_delete_confirm: 'Xóa model này?',
+
+    // Experiments
     exp_title: 'Experiments',
     exp_subtitle: 'Quản lý và theo dõi các training run',
     exp_create: 'Tạo Experiment',
     exp_create_title: 'Tạo Experiment mới',
     exp_name: 'Tên experiment',
     exp_desc: 'Mô tả (tuỳ chọn)',
-    exp_trainer: 'Trainer type',
+    exp_trainer: 'ML Model',
     exp_server: 'Server',
-    exp_server_hint: 'Chọn hoặc nhập server ID',
+    exp_server_hint: 'Chọn server',
     exp_strategy: 'Sampling strategy',
     exp_pretrained: 'Pretrained checkpoint ID (tuỳ chọn)',
     exp_datasets: 'Datasets',
@@ -122,6 +131,9 @@ export const translations = {
     srv_node_port: 'Node Exporter Port',
     srv_cadvisor_port: 'cAdvisor Port',
     srv_dcgm_port: 'DCGM Exporter Port (GPU)',
+    srv_type: 'Loại Server',
+    srv_type_cpu: 'CPU',
+    srv_type_gpu: 'GPU',
     srv_empty: 'Chưa có server nào',
     srv_empty_hint: 'Đăng ký server để quản lý compute resources và theo dõi GPU',
     srv_delete_confirm: 'Xóa server này?',
@@ -223,13 +235,22 @@ export const translations = {
     cp_create: 'Create Project',
 
     // Experiments
+    // ML Models
+    mdl_title: 'Models',
+    mdl_subtitle: 'Manage ML models in this project',
+    mdl_create: 'New Model',
+    mdl_empty: 'No models yet',
+    mdl_empty_hint: 'Create the first model to start training',
+    mdl_delete_confirm: 'Delete this model?',
+
+    // Experiments
     exp_title: 'Experiments',
     exp_subtitle: 'Manage and track training runs',
     exp_create: 'New Experiment',
     exp_create_title: 'Create New Experiment',
     exp_name: 'Experiment name',
     exp_desc: 'Description (optional)',
-    exp_trainer: 'Trainer type',
+    exp_trainer: 'ML Model',
     exp_server: 'Server',
     exp_server_hint: 'Select or type a server ID',
     exp_strategy: 'Sampling strategy',
@@ -269,6 +290,9 @@ export const translations = {
     srv_node_port: 'Node Exporter Port',
     srv_cadvisor_port: 'cAdvisor Port',
     srv_dcgm_port: 'DCGM Exporter Port (GPU)',
+    srv_type: 'Server Type',
+    srv_type_cpu: 'CPU',
+    srv_type_gpu: 'GPU',
     srv_empty: 'No servers registered',
     srv_empty_hint: 'Register a server to manage compute resources and monitor GPUs',
     srv_delete_confirm: 'Delete this server?',

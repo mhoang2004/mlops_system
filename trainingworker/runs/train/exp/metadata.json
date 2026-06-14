@@ -1,0 +1,14 @@
+{
+  "trainer": "YoloTrainer",
+  "classes": [
+    "player",
+    "referee",
+    "ball",
+    "goalkeeper",
+    "football-players-detection"
+  ],
+  "num_classes": 5,
+  "epochs": 1,
+  "experiment": "exp",
+  "checkpoint": "runs/train/exp/best.pt"
+}

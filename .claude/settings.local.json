@@ -18,7 +18,10 @@
       "Bash(npm run *)",
       "Bash(node -e \"console.log\\(require\\('./node_modules/framer-motion/package.json'\\).version\\)\")",
       "Bash(python -c ' *)",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('common/minio_client.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\))"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('common/minio_client.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\))",
+      "Bash(Remove-Item *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\python\\\\mlops\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }

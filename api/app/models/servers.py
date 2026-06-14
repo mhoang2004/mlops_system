@@ -15,6 +15,8 @@ class Server(Base):
     description = Column(Text, nullable=True)
     gpu_count = Column(Integer, default=0)
     gpu_type = Column(String(255), nullable=True)
+    # cpu / gpu
+    server_type = Column(String(10), server_default='cpu', nullable=False)
     # ONLINE / OFFLINE / UNKNOWN
     status = Column(String(50), default="UNKNOWN", nullable=False)
     created_at = Column(DateTime, server_default=func.now())

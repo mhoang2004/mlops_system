@@ -1,18 +1,5 @@
 """
 BaseTrainer — generic contract for every ML framework in this platform.
-
-Design goals
-------------
-* Framework-agnostic: works for detection, classification, segmentation, table, …
-* AI Engineers only implement pure training logic.
-  Infrastructure concerns (MinIO, Celery, annotations, sampling) are fully
-  hidden behind three injected context objects:
-
-      self.data       — DataContext       (dataset access, DataLoader building)
-      self.checkpoint — CheckpointContext (pretrained weights download)
-      self.reporter   — ProgressReporter  (API callbacks, checkpoint upload)
-
-* Generic over (TP, IP) so subclass trainers are fully typed.
 """
 from __future__ import annotations
 
@@ -20,7 +7,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, Optional, Type, TypeVar
 
 import torch
 from pydantic import BaseModel, Field, field_validator
@@ -34,25 +21,50 @@ IP = TypeVar("IP", bound="BaseInferParams")
 # ── Parameter schemas ─────────────────────────────────────────────────────────
 
 class BaseTrainParams(BaseModel):
-    """
-    Common training parameters.
-    Framework trainers extend this with their own fields.
-    """
-    # Label info
-    classes: list[str] = Field(..., min_length=1)
+    # Label info — hidden in UI (auto-populated from project)
+    classes: list[str] = Field(
+        ..., min_length=1,
+        json_schema_extra={"ui_hidden": True},
+    )
 
     # Training loop
-    epochs:        int   = Field(default=50, ge=1)
-    batch_size:    int   = Field(default=16, ge=1)
-    learning_rate: float = Field(default=1e-3, gt=0)
-    weight_decay:  float = Field(default=1e-4, ge=0)
+    epochs: int = Field(
+        default=50, ge=1,
+        description="Số epoch training",
+        json_schema_extra={"ui_group": "training"},
+    )
+    batch_size: int = Field(
+        default=16, ge=1,
+        description="Số mẫu mỗi batch",
+        json_schema_extra={"ui_group": "training"},
+    )
+    learning_rate: float = Field(
+        default=1e-3, gt=0,
+        description="Learning rate ban đầu",
+        json_schema_extra={"ui_group": "training"},
+    )
+    weight_decay: float = Field(
+        default=1e-4, ge=0,
+        description="Weight decay (L2 regularization)",
+        json_schema_extra={"ui_group": "training"},
+    )
 
-    # Output
-    output_dir:       str = Field(default="./runs/train")
-    experiment_name:  str = Field(default="exp")
+    # Output — hidden in UI (set by worker)
+    output_dir: str = Field(
+        default="./runs/train",
+        json_schema_extra={"ui_hidden": True},
+    )
+    experiment_name: str = Field(
+        default="exp",
+        json_schema_extra={"ui_hidden": True},
+    )
 
     # Hardware
-    device: str = Field(default="auto")
+    device: str = Field(
+        default="auto",
+        description="Thiết bị training: auto tự phát hiện GPU",
+        json_schema_extra={"ui_group": "hardware", "ui_options": ["auto", "cpu", "cuda"]},
+    )
 
     @field_validator("device")
     @classmethod
@@ -72,10 +84,6 @@ class BaseTrainParams(BaseModel):
 
 
 class BaseInferParams(BaseModel):
-    """
-    Common inference parameters.
-    Framework trainers extend this with their own fields.
-    """
     weights_path: str   = Field(..., description="Local path or MinIO key of checkpoint")
     confidence:   float = Field(default=0.5, ge=0.0, le=1.0)
     device:       str   = Field(default="auto")
@@ -85,24 +93,18 @@ class BaseInferParams(BaseModel):
 # ── Base Trainer ──────────────────────────────────────────────────────────────
 
 class BaseTrainer(ABC, Generic[TP, IP]):
-    """
-    Abstract base trainer.
-
-    Subclasses MUST implement all @abstractmethod methods.
-    Subclasses MAY override the lifecycle hooks (on_epoch_end, on_train_end).
-
-    Parameters injected by the Celery task (not by the engineer):
-        data       — DataContext
-        checkpoint — CheckpointContext
-        reporter   — ProgressReporter
-    """
+    # Subclasses MUST define these class-level attributes
+    TRAINER_KEY:        ClassVar[str]
+    TRAINER_NAME:       ClassVar[str] = ""
+    TRAIN_PARAMS_CLASS: ClassVar[Type[BaseTrainParams]]
+    INFER_PARAMS_CLASS: ClassVar[Type[BaseInferParams]]
 
     def __init__(
         self,
         params: TP,
-        data: Any,         # DataContext (typed as Any to avoid circular import)
-        checkpoint: Any,   # CheckpointContext
-        reporter: Any,     # ProgressReporter
+        data: Any,
+        checkpoint: Any,
+        reporter: Any,
     ) -> None:
         self.params:     TP  = params
         self.data:       Any = data
@@ -110,22 +112,17 @@ class BaseTrainer(ABC, Generic[TP, IP]):
         self.reporter:   Any = reporter
         self.device:     torch.device = self._resolve_device(params.device)
 
-        # Set by fit() before any abstract method is called
-        self.model:      Optional[torch.nn.Module]       = None
-        self.optimizer:  Optional[torch.optim.Optimizer] = None
-        self.scheduler:  Optional[Any]                   = None
-        self.train_loader: Optional[Any]                 = None
-        self.val_loader:   Optional[Any]                 = None
+        self.model:        Optional[torch.nn.Module]       = None
+        self.optimizer:    Optional[torch.optim.Optimizer] = None
+        self.scheduler:    Optional[Any]                   = None
+        self.train_loader: Optional[Any]                   = None
+        self.val_loader:   Optional[Any]                   = None
 
         params.run_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Public entry point ────────────────────────────────────────────────────
 
     def fit(self) -> dict[str, list]:
-        """
-        Run the full training pipeline.
-        Returns loss/metric history.
-        """
         logger.info("=== fit() | trainer=%s | device=%s ===",
                     type(self).__name__, self.device)
 
@@ -145,6 +142,11 @@ class BaseTrainer(ABC, Generic[TP, IP]):
             self.reporter.update(epoch + 1, self.params.epochs, {
                 "train_loss": train_loss, **val_metrics
             })
+            try:
+                import mlflow
+                mlflow.log_metrics({"train_loss": train_loss, **val_metrics}, step=epoch + 1)
+            except Exception:
+                pass
             self.on_epoch_end(epoch, train_loss, val_metrics)
 
             logger.info("Epoch [%d/%d] loss=%.4f val=%s",
@@ -159,13 +161,11 @@ class BaseTrainer(ABC, Generic[TP, IP]):
         self.on_train_end(best_path)
         return history
 
-    # ── Optional lifecycle hooks ──────────────────────────────────────────────
-
     def on_epoch_end(self, epoch: int, train_loss: float, val_metrics: dict) -> None:
-        """Override to add early stopping, LR scheduling, checkpoint saving per epoch, …"""
+        pass
 
     def on_train_end(self, checkpoint_path: str) -> None:
-        """Override to push artifacts, send notifications, …"""
+        pass
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -195,68 +195,28 @@ class BaseTrainer(ABC, Generic[TP, IP]):
             return torch.device("cuda" if torch.cuda.is_available() else "cpu")
         return torch.device(device_str)
 
-    # ── Abstract interface — AI Engineers MUST implement ──────────────────────
+    # ── Abstract interface ────────────────────────────────────────────────────
 
     @abstractmethod
-    def load_dataset(self) -> tuple[Any, Any]:
-        """
-        Use self.data.get_loader(...) to build DataLoaders.
-
-        Example
-        -------
-        def load_dataset(self):
-            train = self.data.get_loader("TRAIN",      self._make_dataset, batch_size=16)
-            val   = self.data.get_loader("VALIDATION", self._make_dataset, batch_size=32)
-            return train, val
-        """
+    def load_dataset(self) -> tuple[Any, Any]: ...
 
     @abstractmethod
-    def load_model(self) -> torch.nn.Module:
-        """
-        Build or load the model architecture.
-        Use self.checkpoint.has_pretrained() / .get_pretrained_path() for weights.
-        Do NOT call .to(device) — BaseTrainer handles that.
-        """
+    def load_model(self) -> torch.nn.Module: ...
 
     @abstractmethod
-    def configure_optimizer(self) -> tuple[torch.optim.Optimizer, Any]:
-        """
-        Return (optimizer, scheduler).
-        scheduler may be None.
-        """
+    def configure_optimizer(self) -> tuple[torch.optim.Optimizer, Any]: ...
 
     @abstractmethod
-    def train_step(self, batch: Any) -> float:
-        """
-        Forward + backward on one batch.
-        Returns the scalar loss value.
-        """
+    def train_step(self, batch: Any) -> float: ...
 
     @abstractmethod
-    def evaluate(self) -> dict[str, float]:
-        """
-        Run evaluation on self.val_loader.
-        Returns a dict of metrics, e.g. {"mAP50": 0.82, "accuracy": 0.95}.
-        Return {} if no validation split is available.
-        """
+    def evaluate(self) -> dict[str, float]: ...
 
     @abstractmethod
-    def infer(self, source: Any, params: IP) -> Any:
-        """
-        Run inference on arbitrary input (image path, tensor, video, …).
-        Returns framework-specific results.
-        """
+    def infer(self, source: Any, params: IP) -> Any: ...
 
     @abstractmethod
-    def save_checkpoint(self) -> str:
-        """
-        Save model weights (and any auxiliary files) to self.params.run_dir.
-        Returns the path to the primary checkpoint file.
-        """
+    def save_checkpoint(self) -> str: ...
 
     @abstractmethod
-    def load_checkpoint(self, weights_path: str) -> None:
-        """
-        Load weights from a local path into self.model.
-        Used by the trainer itself for resume or fine-tuning.
-        """
+    def load_checkpoint(self, weights_path: str) -> None: ...
