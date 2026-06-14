@@ -129,6 +129,29 @@ export const api = {
       request<void>(`/experiments/${id}`, { method: 'DELETE' }),
   },
 
+  // ── Evaluations ────────────────────────────────────────────────────────────
+
+  evaluations: {
+    list: (projectId: number) =>
+      request<Evaluation[]>(`/evaluations/?project_id=${projectId}`),
+    get: (id: number) => request<Evaluation>(`/evaluations/${id}`),
+    create: (body: {
+      project_id: number;
+      name: string;
+      description?: string;
+      ml_model_id: number;
+      checkpoint_id: number;
+      server_id: string;
+      dataset_version_ids: number[];
+    }) =>
+      request<Evaluation>('/evaluations/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    delete: (id: number) => request<void>(`/evaluations/${id}`, { method: 'DELETE' }),
+  },
+
   // ── Servers ────────────────────────────────────────────────────────────────
 
   servers: {
@@ -294,6 +317,36 @@ export interface Experiment {
   created_at: string;
   updated_at: string;
   datasets?: ExperimentDataset[];
+}
+
+// ── Evaluations ───────────────────────────────────────────────────────────────
+
+export type EvaluationStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface EvaluationDatasetResult {
+  dataset_version_id: number;
+  name: string;
+  metrics: Record<string, number>;
+}
+
+export interface Evaluation {
+  id: number;
+  project_id: number;
+  ml_model_id: number;
+  checkpoint_id: number;
+  name: string;
+  description: string | null;
+  server_id: string;
+  status: EvaluationStatus;
+  celery_task_id: string | null;
+  overall_metrics: Record<string, number> | null;
+  dataset_results: EvaluationDatasetResult[] | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+  datasets?: { id: number; dataset_version_id: number }[];
 }
 
 // ── Servers ────────────────────────────────────────────────────────────────────

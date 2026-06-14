@@ -129,10 +129,10 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
         return train_loader, val_loader
 
     def load_model(self) -> nn.Module:
-        model = _YoloNet(num_classes=self.params.num_classes)
+        self.model = _YoloNet(num_classes=self.params.num_classes)
         if self.checkpoint.has_pretrained():
             self.load_checkpoint(str(self.checkpoint.get_pretrained_path()))
-        return model
+        return self.model
 
     def configure_optimizer(self) -> tuple[torch.optim.Optimizer, Any]:
         assert self.model is not None
@@ -203,6 +203,54 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
         state = ckpt["model_state"] if isinstance(ckpt, dict) else ckpt
         assert self.model is not None
         self.model.load_state_dict(state)
+
+    def evaluate_dataset(self, image_dir: Path, annotation_file: Optional[Path]) -> dict[str, float]:
+        """
+        Evaluate on one dataset (COCO 1.0 JSON format).
+
+        COCO annotation structure:
+            {
+              "images":      [{"id": int, "file_name": str, ...}],
+              "categories":  [{"id": int, "name": str}],
+              "annotations": [{"id": int, "image_id": int, "category_id": int,
+                               "bbox": [x, y, w, h], "area": float, "iscrowd": 0}]
+            }
+
+        Current placeholder returns zeros — replace with real mAP computation
+        (e.g. via torchmetrics.detection.MeanAveragePrecision) once the model
+        produces real bounding-box predictions.
+        """
+        import json as _json
+
+        assert self.model is not None
+        self.model.eval()
+
+        if annotation_file is None or not annotation_file.exists():
+            logger.warning("evaluate_dataset: no annotation file, returning zeros")
+            return {"mAP50": 0.0, "mAP50-95": 0.0, "precision": 0.0, "recall": 0.0}
+
+        with open(annotation_file) as f:
+            coco = _json.load(f)
+
+        images      = coco.get("images", [])
+        annotations = coco.get("annotations", [])
+        categories  = {c["id"]: c["name"] for c in coco.get("categories", [])}
+
+        logger.info(
+            "evaluate_dataset: %d images, %d annotations, %d categories",
+            len(images), len(annotations), len(categories),
+        )
+
+        # TODO: run real inference + compute mAP via torchmetrics or pycocotools
+        # For now return zeros so the pipeline is end-to-end functional
+        return {
+            "num_images":       float(len(images)),
+            "num_annotations":  float(len(annotations)),
+            "mAP50":            0.0,
+            "mAP50-95":         0.0,
+            "precision":        0.0,
+            "recall":           0.0,
+        }
 
     def on_epoch_end(self, epoch: int, train_loss: float, val_metrics: dict) -> None:
         if self.scheduler is not None:

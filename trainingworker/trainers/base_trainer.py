@@ -220,3 +220,20 @@ class BaseTrainer(ABC, Generic[TP, IP]):
 
     @abstractmethod
     def load_checkpoint(self, weights_path: str) -> None: ...
+
+    @abstractmethod
+    def evaluate_dataset(self, image_dir: Path, annotation_file: Optional[Path]) -> dict[str, float]:
+        """
+        Evaluate the loaded model on a single dataset.
+        Called by the evaluation Celery task for each dataset version.
+
+        Parameters
+        ----------
+        image_dir       : directory containing downloaded images
+        annotation_file : path to COCO JSON annotation file, or None if unavailable
+
+        Returns
+        -------
+        dict of metric_name → float  (e.g. {"mAP50": 0.72, "precision": 0.85})
+        """
+        ...

@@ -173,7 +173,7 @@ def create_experiment(db: Session, payload: dict) -> dict:
         "ml_model_id":      ml_model_id,
         "trainer_key":      trainer.key,
         "minio": {
-            "endpoint":    os.getenv("MINIO_ENDPOINT",   "minio:9000"),
+            "endpoint":    os.getenv("MINIO_WORKER_ENDPOINT") or os.getenv("MINIO_ENDPOINT", "minio:9000"),
             "bucket":      "datasets",
             "ckpt_bucket": "checkpoints",
             "access_key":  os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
@@ -185,7 +185,7 @@ def create_experiment(db: Session, payload: dict) -> dict:
         "pretrained_checkpoint":  pretrained_key,
         "classes":                classes,
         "train_params":           train_params,
-        "api_callback_url":       os.getenv("API_INTERNAL_URL", "http://api:8000"),
+        "api_callback_url":       os.getenv("API_WORKER_URL") or os.getenv("API_INTERNAL_URL", "http://api:8000"),
     }
 
     if CELERY_AVAILABLE:
