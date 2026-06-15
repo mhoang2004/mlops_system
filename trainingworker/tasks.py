@@ -96,6 +96,8 @@ def run_experiment(self: Task, payload: dict) -> dict:
         params = ParamsCls(
             classes=payload["classes"],
             **payload["train_params"],
+            output_dir=str(exp_dir),
+            experiment_name="train",
         )
         params.run_dir.mkdir(parents=True, exist_ok=True)
 
