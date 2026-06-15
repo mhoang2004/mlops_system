@@ -14,6 +14,7 @@ FROM python:3.9-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgomp1 \
         curl \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -33,6 +34,13 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
     && pip install --no-cache-dir opencv-python-headless
 
+# Pre-download YOLOv8 weights during build so runtime has no internet dependency.
+# Stored in /opt/yolo_weights — outside /app so the volume mount doesn't hide them.
+ENV YOLO_WEIGHTS_DIR=/opt/yolo_weights
+RUN mkdir -p /opt/yolo_weights
+COPY download_weights.py /tmp/download_weights.py
+RUN python /tmp/download_weights.py
+
 # Application source
 COPY . .
 
@@ -47,7 +55,7 @@ RUN mkdir -p /workspace/experiments
 
 # Non-root user
 RUN useradd -m -u 1001 worker \
-    && chown -R worker:worker /app /workspace
+    && chown -R worker:worker /app /workspace /opt/yolo_weights
 USER worker
 
 # Healthcheck — ping the worker process itself

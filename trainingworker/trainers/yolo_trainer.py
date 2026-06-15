@@ -137,11 +137,14 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
         workspace = self.params.run_dir / "data"
         data_yaml = self._build_dataset(workspace, train_paths, val_paths)
 
-        # 3. Load model
+        # 3. Load model — pretrained checkpoint > baked weights > ultralytics download
         if self.checkpoint.has_pretrained():
             model_path = str(self.checkpoint.get_pretrained_path())
         else:
-            model_path = f"yolov8{self.params.model_size}.pt"
+            import os
+            weights_dir = Path(os.environ.get("YOLO_WEIGHTS_DIR", "/opt/yolo_weights"))
+            baked = weights_dir / f"yolov8{self.params.model_size}.pt"
+            model_path = str(baked) if baked.exists() else f"yolov8{self.params.model_size}.pt"
         self._ulm = YOLO(model_path)
 
         # 4. Wire progress callbacks
