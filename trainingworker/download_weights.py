@@ -1,39 +1,34 @@
 """
-Pre-download YOLOv8 weights into YOLO_WEIGHTS_DIR during Docker build.
+Pre-download YOLOv8 weights into /opt/yolo_weights during Docker build.
 
-Key: YOLO_CONFIG_DIR must be set before ANY ultralytics import so that the
-module-level WEIGHTS_DIR constant is initialised with the right path.
+Key: pass the FULL destination path to attempt_download_asset.
+When the path contains a directory separator, ultralytics downloads directly
+to that path instead of redirecting to its internal WEIGHTS_DIR.
 """
-import os
-import shutil
 import sys
 from pathlib import Path
 
-weights_dir = Path(os.environ.get("YOLO_WEIGHTS_DIR", "/opt/yolo_weights"))
-weights_dir.mkdir(parents=True, exist_ok=True)
+from ultralytics.utils.downloads import attempt_download_asset
 
-# Redirect ultralytics config + weights cache into our directory.
-# WEIGHTS_DIR = YOLO_CONFIG_DIR / "weights" — set BEFORE any ultralytics import.
-os.environ["YOLO_CONFIG_DIR"] = str(weights_dir / ".ult")
+DEST = Path("/opt/yolo_weights")
+DEST.mkdir(parents=True, exist_ok=True)
 
-from ultralytics import YOLO  # noqa: E402  (import after env set)
-from ultralytics.utils import WEIGHTS_DIR  # noqa: E402
-
-print(f"ultralytics WEIGHTS_DIR: {WEIGHTS_DIR}", flush=True)
-
+failed = []
 for size in ["n", "s", "m", "l", "x"]:
     name = f"yolov8{size}.pt"
-    dst = weights_dir / name
-    if dst.exists() and dst.stat().st_size > 1_000_000:
-        print(f"EXISTS  {name}", flush=True)
-        continue
+    dst = DEST / name
     try:
-        YOLO(name)  # downloads to WEIGHTS_DIR
-        src = WEIGHTS_DIR / name
-        if src.exists():
-            shutil.copy2(src, dst)
-            print(f"OK      {name}  ({dst.stat().st_size:,} bytes)", flush=True)
+        attempt_download_asset(str(dst))  # full path → no WEIGHTS_DIR redirect
+        sz = dst.stat().st_size if dst.exists() else 0
+        if sz > 1_000_000:
+            print(f"OK    {name}  ({sz:,} bytes)", flush=True)
         else:
-            print(f"WARN    {name}: not found at {src}", file=sys.stderr)
+            print(f"FAIL  {name}: too small or missing ({sz} bytes)", file=sys.stderr)
+            failed.append(name)
     except Exception as e:
-        print(f"SKIP    {name}: {e}", file=sys.stderr)
+        print(f"FAIL  {name}: {e}", file=sys.stderr)
+        failed.append(name)
+
+if failed:
+    print(f"ERROR: weight download failed for {failed}", file=sys.stderr)
+    sys.exit(1)  # fail the Docker build so the problem is visible

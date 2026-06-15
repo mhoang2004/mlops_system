@@ -137,13 +137,23 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
         workspace = self.params.run_dir / "data"
         data_yaml = self._build_dataset(workspace, train_paths, val_paths)
 
-        # 3. Load model — pretrained checkpoint > baked weights > ultralytics download
+        # 3. Load model — pretrained checkpoint > baked weights > download to weights_dir
         if self.checkpoint.has_pretrained():
             model_path = str(self.checkpoint.get_pretrained_path())
         else:
             import os
             weights_dir = Path(os.environ.get("YOLO_WEIGHTS_DIR", "/opt/yolo_weights"))
             baked = weights_dir / f"yolov8{self.params.model_size}.pt"
+            if not baked.exists():
+                # Pass full path so ultralytics downloads directly here (no WEIGHTS_DIR redirect).
+                # Avoids curl-23 write errors that occur when writing to the user's home config dir.
+                logger.warning("Baked weights not found at %s — downloading to same dir", baked)
+                try:
+                    from ultralytics.utils.downloads import attempt_download_asset
+                    weights_dir.mkdir(parents=True, exist_ok=True)
+                    attempt_download_asset(str(baked))
+                except Exception as _e:
+                    logger.warning("Direct download failed: %s", _e)
             model_path = str(baked) if baked.exists() else f"yolov8{self.params.model_size}.pt"
         self._ulm = YOLO(model_path)
 
