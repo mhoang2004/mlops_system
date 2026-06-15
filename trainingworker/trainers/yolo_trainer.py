@@ -243,11 +243,11 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
         cfg: dict = {
             "path":  str(workspace),
             "train": "train/images",
+            # ultralytics requires val; fall back to train split when no val dataset provided
+            "val":   "val/images" if val_paths else "train/images",
             "nc":    self.params.num_classes,
             "names": self.params.classes,
         }
-        if val_paths:
-            cfg["val"] = "val/images"
 
         yaml_path = workspace / "data.yaml"
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
