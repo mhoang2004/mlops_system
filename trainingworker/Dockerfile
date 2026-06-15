@@ -27,7 +27,11 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Install remaining shared deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    # ultralytics pulls opencv-python which needs X11 display libs not present in headless containers.
+    # Swap to the headless variant immediately after to avoid libxcb.so.1 import errors.
+    && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
+    && pip install --no-cache-dir opencv-python-headless
 
 # Application source
 COPY . .

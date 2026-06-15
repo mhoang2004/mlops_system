@@ -60,16 +60,16 @@ services:
   # GPU metrics (util, VRAM, temp, power). Chỉ dùng trên máy có GPU NVIDIA.
   # Yêu cầu: NVIDIA Container Toolkit đã cài, uncomment runtime: nvidia ở trên.
   # Prometheus scrape :9400.
-  # dcgm-exporter:
-  #   image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
-  #   container_name: mlops-dcgm-exporter
-  #   restart: unless-stopped
-  #   runtime: nvidia
-  #   network_mode: host
-  #   environment:
-  #     NVIDIA_VISIBLE_DEVICES: all
-  #   cap_add:
-  #     - SYS_ADMIN
+  dcgm-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
+    container_name: mlops-dcgm-exporter
+    restart: unless-stopped
+    runtime: nvidia
+    network_mode: host
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+    cap_add:
+      - SYS_ADMIN
 
 volumes:
   worker_data:
