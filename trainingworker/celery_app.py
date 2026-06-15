@@ -24,11 +24,6 @@ celery_app.conf.update(
     # Keep Redis connections alive across Tailscale/VPN where idle connections get dropped
     broker_transport_options = {
         "socket_keepalive": True,
-        "socket_keepalive_options": {
-            "TCP_KEEPIDLE":  60,
-            "TCP_KEEPINTVL": 10,
-            "TCP_KEEPCNT":   5,
-        },
         "retry_on_timeout": True,
     },
     redis_socket_keepalive = True,
