@@ -445,6 +445,19 @@ function DetailModal({
       {exp && (
         <div className="flex flex-col gap-6 max-h-[70vh] overflow-y-auto pr-1">
 
+          {exp.mlflow_run_id && (
+            <a
+              href={`${MLFLOW_URL}/#/runs/${exp.mlflow_run_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="self-start"
+            >
+              <Button variant="ghost" icon={<ExternalLink className="w-3.5 h-3.5" />}>
+                Xem biểu đồ trong MLflow
+              </Button>
+            </a>
+          )}
+
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             {([
               ['Model ID',      exp.ml_model_id],
@@ -667,6 +680,17 @@ function ExperimentCard({
         <Button variant="ghost" size="sm" onClick={() => onDetail(exp.id)}>
           {t('exp_detail')}
         </Button>
+        {exp.mlflow_run_id && (
+          <a
+            href={`${MLFLOW_URL}/#/runs/${exp.mlflow_run_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="ghost" size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />}>
+              MLflow
+            </Button>
+          </a>
+        )}
         {isActive && (
           <Button
             variant="ghost"

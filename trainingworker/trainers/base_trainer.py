@@ -144,7 +144,10 @@ class BaseTrainer(ABC, Generic[TP, IP]):
             })
             try:
                 import mlflow
-                mlflow.log_metrics({"train_loss": train_loss, **val_metrics}, step=epoch + 1)
+                mlflow_metrics: dict = {"train_loss": train_loss, **val_metrics}
+                if self.optimizer:
+                    mlflow_metrics["lr"] = self.optimizer.param_groups[0]["lr"]
+                mlflow.log_metrics(mlflow_metrics, step=epoch + 1)
             except Exception:
                 pass
             self.on_epoch_end(epoch, train_loss, val_metrics)

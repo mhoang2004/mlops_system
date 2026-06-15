@@ -262,6 +262,14 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
             self.save_checkpoint()
         else:
             self._epochs_no_improve += 1
+        try:
+            import mlflow
+            mlflow.log_metrics({
+                "best_mAP50":        self._best_map,
+                "epochs_no_improve": float(self._epochs_no_improve),
+            }, step=epoch + 1)
+        except Exception:
+            pass
 
 
 # ── Placeholder dataset ───────────────────────────────────────────────────────

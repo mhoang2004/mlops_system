@@ -313,6 +313,7 @@ export interface Experiment {
   train_params: Record<string, unknown>;
   status: ExperimentStatus;
   celery_task_id: string | null;
+  mlflow_run_id: string | null;
   metrics: Record<string, unknown> | null;
   output_ckpt_id: number | null;
   error_message: string | null;

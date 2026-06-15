@@ -44,6 +44,7 @@ class ProgressUpdateRequest(BaseModel):
     current_epoch: Optional[int] = None
     total_epochs:  Optional[int] = None
     metrics:       Optional[dict[str, Any]] = None
+    mlflow_run_id: Optional[str] = None
 
 
 class CompleteRequest(BaseModel):

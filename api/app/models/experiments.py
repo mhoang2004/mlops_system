@@ -25,6 +25,7 @@ class Experiment(Base):
     # Runtime
     status              = Column(String(20), nullable=False, default="PENDING")
     celery_task_id      = Column(String(255), nullable=True)
+    mlflow_run_id       = Column(String(64),  nullable=True)
 
     # Results
     metrics             = Column(JSON, nullable=True)

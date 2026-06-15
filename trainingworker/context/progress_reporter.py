@@ -91,6 +91,9 @@ class ProgressReporter:
             # Never let a reporter failure crash the training job
             logger.warning("ProgressReporter._patch(%s) failed: %s", endpoint, exc)
 
-    def _update_status(self, status: str) -> None:
+    def _update_status(self, status: str, mlflow_run_id: str | None = None) -> None:
         """Used internally by the Celery task (not by AI Engineers)."""
-        self._patch("progress", {"status": status})
+        body: dict = {"status": status}
+        if mlflow_run_id is not None:
+            body["mlflow_run_id"] = mlflow_run_id
+        self._patch("progress", body)

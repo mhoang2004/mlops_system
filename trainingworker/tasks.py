@@ -73,7 +73,7 @@ def run_experiment(self: Task, payload: dict) -> dict:
         try:
             mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
             mlflow.set_experiment(f"project_{project_id}")
-            mlflow.start_run(run_name=f"exp_{exp_id}")
+            mlflow.start_run(run_name=f"exp_{exp_id} — {payload.get('experiment_name', '')}")
             mlflow.log_params({k: str(v)[:250] for k, v in payload["train_params"].items()})
             mlflow.set_tags({
                 "trainer_key":   payload["trainer_key"],
@@ -81,7 +81,10 @@ def run_experiment(self: Task, payload: dict) -> dict:
                 "project_id":    str(project_id),
             })
             mlflow_active = True
-            logger.info("MLflow run started for experiment %d", exp_id)
+            run_id = mlflow.active_run().info.run_id
+            logger.info("MLflow run started: run_id=%s for experiment %d", run_id, exp_id)
+            # Persist run_id so UI can deep-link to this run
+            reporter._update_status("PENDING", mlflow_run_id=run_id)
         except Exception as e:
             logger.warning("MLflow setup failed: %s", e)
 

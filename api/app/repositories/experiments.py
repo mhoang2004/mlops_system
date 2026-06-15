@@ -89,10 +89,13 @@ def update_progress(
     *,
     status: str,
     metrics: Optional[dict] = None,
+    mlflow_run_id: Optional[str] = None,
 ) -> Experiment:
     exp.status = status
     if metrics:
         exp.metrics = metrics
+    if mlflow_run_id is not None and exp.mlflow_run_id is None:
+        exp.mlflow_run_id = mlflow_run_id
     db.commit()
     db.refresh(exp)
     return exp

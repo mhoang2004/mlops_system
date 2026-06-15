@@ -232,7 +232,12 @@ def cancel_experiment(db: Session, experiment_id: int) -> dict:
 
 def handle_progress_update(db: Session, experiment_id: int, body: dict) -> dict:
     exp = _get_or_404(db, experiment_id)
-    repo.update_progress(db, exp, status=body.get("status", exp.status), metrics=body.get("metrics"))
+    repo.update_progress(
+        db, exp,
+        status=body.get("status", exp.status),
+        metrics=body.get("metrics"),
+        mlflow_run_id=body.get("mlflow_run_id"),
+    )
     return _serialize(exp)
 
 
@@ -292,6 +297,7 @@ def _serialize(exp) -> dict:
         "train_params":        exp.train_params,
         "status":              exp.status,
         "celery_task_id":      exp.celery_task_id,
+        "mlflow_run_id":       exp.mlflow_run_id,
         "metrics":             exp.metrics,
         "output_ckpt_id":      exp.output_ckpt_id,
         "error_message":       exp.error_message,
