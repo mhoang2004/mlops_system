@@ -10,12 +10,17 @@ from pathlib import Path
 from typing import Any, ClassVar, Generic, Optional, Type, TypeVar
 
 import torch
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
 TP = TypeVar("TP", bound="BaseTrainParams")
 IP = TypeVar("IP", bound="BaseInferParams")
+
+
+class BaseMetrics(BaseModel):
+    """Evaluation metrics schema returned by trainer.evaluate()."""
+    model_config = ConfigDict(extra="allow")
 
 
 # ── Parameter schemas ─────────────────────────────────────────────────────────
@@ -98,6 +103,7 @@ class BaseTrainer(ABC, Generic[TP, IP]):
     TRAINER_NAME:       ClassVar[str] = ""
     TRAIN_PARAMS_CLASS: ClassVar[Type[BaseTrainParams]]
     INFER_PARAMS_CLASS: ClassVar[Type[BaseInferParams]]
+    METRICS_CLASS:      ClassVar[Type[BaseMetrics]] = BaseMetrics
 
     def __init__(
         self,

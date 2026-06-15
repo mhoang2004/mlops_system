@@ -15,7 +15,7 @@ services:
       context: ./trainingworker
       dockerfile: Dockerfile
     container_name: mlops-training-worker
-    # runtime: nvidia   # bỏ comment nếu máy có GPU NVIDIA + NVIDIA Container Toolkit
+    runtime: nvidia   # yêu cầu: NVIDIA Container Toolkit đã cài trên máy
     volumes:
       - ./trainingworker:/app
       - ./common:/app/common
