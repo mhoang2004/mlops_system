@@ -94,7 +94,6 @@ def main() -> None:
     if len(sys.argv) > 1:
         celery_cmd = list(sys.argv[1:])
         if server_id is not None:
-            # Add a dedicated queue "server_{id}" so tasks are routed to this worker only
             dedicated_queue = f"server_{server_id}"
             if "-Q" in celery_cmd:
                 q_idx = celery_cmd.index("-Q") + 1
@@ -102,6 +101,12 @@ def main() -> None:
             else:
                 celery_cmd += ["-Q", f"celery,{dedicated_queue}"]
             log.info("[startup] Worker queues: celery + %s", dedicated_queue)
+        else:
+            log.warning(
+                "[startup] ⚠️  Server self-registration FAILED — worker will only listen to "
+                "queue 'celery'. Tasks routed to server_{id} queues will NOT be consumed! "
+                "Check WORKER_NAME, WORKER_HOST, API_INTERNAL_URL env vars."
+            )
         log.info("[startup] Exec: %s", " ".join(celery_cmd))
         os.execvp(celery_cmd[0], celery_cmd)
 

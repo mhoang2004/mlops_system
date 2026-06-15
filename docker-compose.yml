@@ -145,7 +145,7 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes --tcp-keepalive 60 --timeout 0
     volumes:
       - redis_data:/data
     networks:

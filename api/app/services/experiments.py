@@ -189,9 +189,15 @@ def create_experiment(db: Session, payload: dict) -> dict:
     }
 
     if CELERY_AVAILABLE:
+        import logging as _log
+        _logger = _log.getLogger(__name__)
         queue = f"server_{server_id}" if str(server_id).isdigit() else "celery"
+        _logger.info(
+            "[dispatch] experiment=%d server_id=%s → queue=%s", exp.id, server_id, queue
+        )
         task = celery_app.send_task("tasks.run_experiment", args=[job_payload], queue=queue)
         repo.update_status(db, exp, "PENDING", celery_task_id=task.id)
+        _logger.info("[dispatch] task_id=%s", task.id)
     else:
         import logging
         logging.getLogger(__name__).warning(
