@@ -43,12 +43,30 @@ def _register_self_as_server() -> int | None:
     nvidia_devices = os.getenv("NVIDIA_VISIBLE_DEVICES", "void")
     is_gpu = nvidia_devices not in ("void", "", "none", "NULL")
 
-    payload = {
-        "name": name,
-        "host": host,
+    payload: dict = {
+        "name":        name,
+        "host":        host,
         "server_type": "gpu" if is_gpu else "cpu",
-        "gpu_count": 0 if not is_gpu else 1,
+        "gpu_count":   0 if not is_gpu else int(os.getenv("GPU_COUNT", "1")),
     }
+
+    if is_gpu:
+        gpu_type = os.getenv("GPU_TYPE")
+        if gpu_type:
+            payload["gpu_type"] = gpu_type
+
+        node_exporter_port = os.getenv("NODE_EXPORTER_PORT")
+        if node_exporter_port:
+            payload["node_exporter_port"] = int(node_exporter_port)
+
+        cadvisor_port = os.getenv("CADVISOR_PORT")
+        if cadvisor_port:
+            payload["cadvisor_port"] = int(cadvisor_port)
+
+        dcgm_port = os.getenv("DCGM_EXPORTER_PORT")
+        if dcgm_port:
+            payload["dcgm_exporter_port"] = int(dcgm_port)
+            log.info("[startup] DCGM exporter configured at port %s", dcgm_port)
 
     log.info("[startup] Registering server: name=%s host=%s type=%s", name, host, payload["server_type"])
 
