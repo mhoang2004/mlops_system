@@ -37,6 +37,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Pre-download YOLOv8 weights during build so runtime has no internet dependency.
 # Stored in /opt/yolo_weights — outside /app so the volume mount doesn't hide them.
 ENV YOLO_WEIGHTS_DIR=/opt/yolo_weights
+# YOLO_CONFIG_DIR persists to runtime so all ultralytics asset downloads
+# (weights, fonts, settings) go to a directory owned by the worker user.
+ENV YOLO_CONFIG_DIR=/opt/yolo_weights/.ult
 RUN mkdir -p /opt/yolo_weights
 COPY download_weights.py /tmp/download_weights.py
 RUN python /tmp/download_weights.py
