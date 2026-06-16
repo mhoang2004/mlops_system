@@ -163,7 +163,8 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
 
         def _on_fit_epoch_end(trainer):
             epoch = trainer.epoch + 1
-            tloss = float(trainer.tloss) if trainer.tloss is not None else 0.0
+            t = trainer.tloss
+            tloss = 0.0 if t is None else float(t.mean() if hasattr(t, "mean") else t)
             m = trainer.metrics or {}
             val_m: dict[str, float] = {
                 "mAP50":     round(m.get("metrics/mAP50(B)", 0.0), 4),
