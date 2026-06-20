@@ -36,9 +36,36 @@ def _wait_for_api(timeout: int = 120) -> None:
     log.warning("[startup] API did not respond in %ds — proceeding anyway.", timeout)
 
 
+def _lookup_server_by_name(name: str, timeout: int = 60) -> int | None:
+    """Wait up to `timeout` seconds for a server with the given name to appear in the API."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = requests.get(f"{API_URL}/servers/", timeout=10)
+            existing = next((s for s in r.json() if s["name"] == name), None)
+            if existing:
+                return existing["id"]
+        except Exception:
+            pass
+        log.info("[startup] Waiting for server '%s' to be registered...", name)
+        time.sleep(5)
+    return None
+
+
 def _register_self_as_server() -> int | None:
     """Register this worker as a server. Returns the server DB ID (for queue routing)."""
     name = os.getenv("WORKER_NAME", "local-worker")
+    worker_role = os.getenv("WORKER_ROLE", "training")
+
+    if worker_role == "inference":
+        log.info("[startup] Inference worker — looking up existing server '%s'...", name)
+        server_id = _lookup_server_by_name(name)
+        if server_id is not None:
+            log.info("[startup] Paired with server '%s' (id=%s).", name, server_id)
+        else:
+            log.warning("[startup] Server '%s' not found — training worker may not be up yet.", name)
+        return server_id
+
     host = os.getenv("WORKER_HOST", "localhost")
     nvidia_devices = os.getenv("NVIDIA_VISIBLE_DEVICES", "void")
     is_gpu = nvidia_devices not in ("void", "", "none", "NULL")
@@ -112,7 +139,8 @@ def main() -> None:
     if len(sys.argv) > 1:
         celery_cmd = list(sys.argv[1:])
         if server_id is not None:
-            dedicated_queue = f"server_{server_id}"
+            worker_role = os.getenv("WORKER_ROLE", "training")
+            dedicated_queue = f"server_{server_id}_inference" if worker_role == "inference" else f"server_{server_id}"
             if "-Q" in celery_cmd:
                 q_idx = celery_cmd.index("-Q") + 1
                 celery_cmd[q_idx] = f"{celery_cmd[q_idx]},{dedicated_queue}"
