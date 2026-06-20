@@ -110,7 +110,7 @@ def create_visualization(
     }
 
     if CELERY_AVAILABLE:
-        queue = f"server_{server_id}" if str(server_id).isdigit() else "inference"
+        queue = f"server_{server_id}_inference" if str(server_id).isdigit() else "inference"
         task = celery_app.send_task("tasks.run_visualization", args=[job_payload], queue=queue)
         repo.update_status(db, viz, "PENDING", celery_task_id=task.id)
 

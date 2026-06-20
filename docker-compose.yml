@@ -76,33 +76,29 @@ services:
 
   # ── Inference Worker ──────────────────────────────────────────────────────────
   # Handles evaluation and visualization tasks (lighter than training).
-  # Uses the same image as training-worker; no GPU needed by default.
-  inference-worker:
-    build:
-      context: ./trainingworker
-      dockerfile: Dockerfile
-    container_name: mlops-inference-worker
-    volumes:
-      - ./trainingworker:/app
-      - ./common:/app/common
-      - worker_data:/workspace/experiments
-    environment:
-      <<: *common-env
-      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}
-      WORKER_NAME:  ${INFERENCE_WORKER_NAME:-local-inference}
-      WORKER_HOST:  ${WORKER_HOST:-host.docker.internal}
-    networks:
-      - mlops_network
-    depends_on:
-      api:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      mlflow:
-        condition: service_healthy
-    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=4 -Q inference
+  # Shares WORKER_NAME with training-worker → same server entry in UI.
+  # Uses the same image; no GPU needed by default.
+  # inference-worker:
+  #   build:
+  #     context: ./trainingworker
+  #     dockerfile: Dockerfile
+  #   container_name: mlops-inference-worker
+  #   volumes:
+  #     - ./trainingworker:/app
+  #     - ./common:/app/common
+  #     - worker_data:/workspace/experiments
+  #   environment:
+  #     <<: *common-env
+  #     NVIDIA_VISIBLE_DEVICES: void
+  #     WORKER_NAME:  ${WORKER_NAME:-local}
+  #     WORKER_HOST:  ${WORKER_HOST:-host.docker.internal}
+  #     WORKER_ROLE:  inference
+  #   networks:
+  #     - mlops_network
+  #   depends_on:
+  #     training-worker:
+  #       condition: service_started
+  #   command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=4 -Q inference
 
   # ── MLflow ───────────────────────────────────────────────────────────────────
   mlflow:

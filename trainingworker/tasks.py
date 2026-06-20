@@ -337,7 +337,6 @@ def run_evaluation(self: Task, payload: dict) -> dict:
             def fail(self, msg): pass
 
         trainer = TrainerCls(params, None, _NoCkpt(), _NoReporter())
-        trainer.model = trainer.load_model().to(trainer.device)
         trainer.load_checkpoint(str(ckpt_local))
         logger.info("Model loaded from checkpoint")
 

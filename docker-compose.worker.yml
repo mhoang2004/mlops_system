@@ -40,7 +40,8 @@ services:
       - worker_data:/workspace/experiments
     env_file: .env.worker
     environment:
-      WORKER_NAME: ${INFERENCE_WORKER_NAME:-gpu-server-1-inference}
+      WORKER_ROLE: inference
+      NVIDIA_VISIBLE_DEVICES: void
     network_mode: host
     restart: unless-stopped
     command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=4 -Q inference
