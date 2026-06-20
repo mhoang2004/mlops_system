@@ -6,7 +6,9 @@
 # Setup:
 #   cp .env.worker.example .env.worker
 #   # Sửa các giá trị trong .env.worker
-#   docker compose -f docker-compose.worker.yml up --build -d
+#   docker compose -f docker-compose.worker.yml --env-file .env.worker up --build -d
+#
+# --env-file cần thiết để INFERENCE_WORKER_NAME được đọc từ .env.worker vào YAML substitution.
 
 services:
 
@@ -25,7 +27,23 @@ services:
     # Không dùng bridge network vì Tailscale chạy trên host, không trong Docker.
     network_mode: host
     restart: unless-stopped
-    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=2 -Q celery
+    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=2 -Q training
+
+  inference-worker:
+    build:
+      context: ./trainingworker
+      dockerfile: Dockerfile
+    container_name: mlops-inference-worker
+    volumes:
+      - ./trainingworker:/app
+      - ./common:/app/common
+      - worker_data:/workspace/experiments
+    env_file: .env.worker
+    environment:
+      WORKER_NAME: ${INFERENCE_WORKER_NAME:-gpu-server-1-inference}
+    network_mode: host
+    restart: unless-stopped
+    command: python /app/startup.py celery -A celery_app worker --loglevel=info --concurrency=4 -Q inference
 
   # ── Node Exporter ─────────────────────────────────────────────────────────────
   # CPU, RAM, Disk, Network của host. Prometheus trên máy 1 scrape :9100.

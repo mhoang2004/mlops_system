@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.database import Base, engine
-from app.models import projects, dataset_versions, checkpoints, experiments, servers, trainers, ml_models, evaluations  # noqa: F401
+from app.models import projects, dataset_versions, checkpoints, experiments, servers, trainers, ml_models, evaluations, visualizations  # noqa: F401
 from app.routers import projects as projects_router
 from app.routers import dataset_versions as dv_router
 from app.routers import checkpoints as ckpt_router
@@ -15,6 +15,7 @@ from app.routers import servers as srv_router
 from app.routers import trainers as trainer_router
 from app.routers import ml_models as mlmodel_router
 from app.routers import evaluations as eval_router
+from app.routers import visualizations as viz_router
 
 log = logging.getLogger("api")
 
@@ -48,6 +49,7 @@ app.include_router(srv_router.router)
 app.include_router(trainer_router.router)
 app.include_router(mlmodel_router.router)
 app.include_router(eval_router.router)
+app.include_router(viz_router.router)
 
 
 @app.get("/", tags=["health"])

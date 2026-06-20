@@ -55,6 +55,14 @@ export const api = {
         body: JSON.stringify(body),
       }),
     delete: (id: number) => request<void>(`/dataset-versions/${id}`, { method: 'DELETE' }),
+    uploadFiles: (id: number, files: File[]) => {
+      const form = new FormData();
+      files.forEach((f) => form.append('files', f));
+      return request<{ uploaded: string[]; count: number }>(`/dataset-versions/${id}/files`, {
+        method: 'POST',
+        body: form,
+      });
+    },
     uploadLabels: (id: number, files: File[]) => {
       const form = new FormData();
       files.forEach((f) => form.append('files', f));
@@ -154,6 +162,19 @@ export const api = {
         body: JSON.stringify(body),
       }),
     delete: (id: number) => request<void>(`/evaluations/${id}`, { method: 'DELETE' }),
+  },
+
+  // ── Visualizations ─────────────────────────────────────────────────────────
+
+  visualizations: {
+    list: (projectId: number) =>
+      request<Visualization[]>(`/visualizations/?project_id=${projectId}`),
+    get: (id: number) => request<Visualization>(`/visualizations/${id}`),
+    create: (form: FormData) =>
+      request<Visualization>('/visualizations/', { method: 'POST', body: form }),
+    resultImages: (id: number) =>
+      request<VisualizationResultImage[]>(`/visualizations/${id}/result-images`),
+    delete: (id: number) => request<void>(`/visualizations/${id}`, { method: 'DELETE' }),
   },
 
   // ── Servers ────────────────────────────────────────────────────────────────
@@ -352,6 +373,47 @@ export interface Evaluation {
   created_at: string;
   updated_at: string;
   datasets?: { id: number; dataset_version_id: number }[];
+}
+
+// ── Visualizations ────────────────────────────────────────────────────────────
+
+export type VisualizationStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface Detection {
+  box: [number, number, number, number];
+  score: number;
+  class_id: number;
+  class_name: string;
+}
+
+export interface VisualizationResult {
+  filename: string;
+  output_filename: string;
+  output_key: string | null;
+  detections: Detection[];
+}
+
+export interface VisualizationResultImage extends VisualizationResult {
+  output_url: string | null;
+}
+
+export interface Visualization {
+  id: number;
+  project_id: number;
+  ml_model_id: number;
+  checkpoint_id: number;
+  name: string;
+  server_id: string;
+  confidence: number;
+  status: VisualizationStatus;
+  celery_task_id: string | null;
+  input_image_keys: string[] | null;
+  results: VisualizationResult[] | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Servers ────────────────────────────────────────────────────────────────────

@@ -191,7 +191,7 @@ def create_experiment(db: Session, payload: dict) -> dict:
     if CELERY_AVAILABLE:
         import logging as _log
         _logger = _log.getLogger(__name__)
-        queue = f"server_{server_id}" if str(server_id).isdigit() else "celery"
+        queue = f"server_{server_id}" if str(server_id).isdigit() else "training"
         _logger.info(
             "[dispatch] experiment=%d server_id=%s → queue=%s", exp.id, server_id, queue
         )

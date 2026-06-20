@@ -379,6 +379,47 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
             })
         return output
 
+    def visualize(
+        self,
+        image_paths: list[Path],
+        output_dir: Path,
+        confidence: float = 0.5,
+    ) -> list[dict]:
+        import cv2
+        output_dir.mkdir(parents=True, exist_ok=True)
+        results = []
+        for img_path in image_paths:
+            preds = self._ulm.predict(
+                str(img_path), conf=confidence, verbose=False, device=str(self.device)
+            )
+            r = preds[0]
+            out_name = img_path.stem + "_viz" + img_path.suffix
+            out_path = output_dir / out_name
+            cv2.imwrite(str(out_path), r.plot())
+
+            boxes = r.boxes
+            detections = []
+            for i in range(len(boxes)):
+                cls_id = int(boxes.cls[i])
+                cls_name = (
+                    self.params.classes[cls_id]
+                    if cls_id < len(self.params.classes)
+                    else str(cls_id)
+                )
+                detections.append({
+                    "box":        [round(v, 2) for v in boxes.xyxy[i].tolist()],
+                    "score":      round(float(boxes.conf[i]), 4),
+                    "class_id":   cls_id,
+                    "class_name": cls_name,
+                })
+
+            results.append({
+                "filename":        img_path.name,
+                "output_filename": out_name,
+                "detections":      detections,
+            })
+        return results
+
     def evaluate_dataset(self, image_dir: Path, annotation_file: Optional[Path]) -> dict[str, float]:
         if self._ulm is None:
             logger.warning("evaluate_dataset called before model is loaded")

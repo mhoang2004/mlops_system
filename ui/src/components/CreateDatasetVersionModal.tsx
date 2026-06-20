@@ -7,6 +7,8 @@ import { Button } from './ui/Button';
 import { DropZone } from './ui/DropZone';
 import { useLang } from '../contexts/LangContext';
 
+const CHUNK_SIZE = 10;
+
 interface Props {
   projectId: number;
   onCreated: (dv: DatasetVersion) => void;
@@ -21,6 +23,12 @@ export function CreateDatasetVersionModal({ projectId, onCreated }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState<{ uploaded: number; total: number } | null>(null);
+
+  const resetForm = () => {
+    setName(''); setVersion('v1'); setDescription(''); setFiles([]);
+    setProgress(null); setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,17 +36,32 @@ export function CreateDatasetVersionModal({ projectId, onCreated }: Props) {
     if (!version.trim()) { setError(t('error_empty_version')); return; }
     setLoading(true);
     setError('');
+
     try {
+      const firstChunk = files.slice(0, CHUNK_SIZE);
       const form = new FormData();
       form.append('project_id', String(projectId));
       form.append('name', name.trim());
       form.append('version', version.trim());
       if (description.trim()) form.append('description', description.trim());
-      files.forEach((f) => form.append('files', f));
+      firstChunk.forEach((f) => form.append('files', f));
+
       const dv = await api.datasetVersions.create(form);
+
+      let uploaded = firstChunk.length;
+      const total = files.length;
+      if (total > 0) setProgress({ uploaded, total });
+
+      for (let i = CHUNK_SIZE; i < total; i += CHUNK_SIZE) {
+        const chunk = files.slice(i, i + CHUNK_SIZE);
+        await api.datasetVersions.uploadFiles(dv.id, chunk);
+        uploaded += chunk.length;
+        setProgress({ uploaded, total });
+      }
+
       onCreated(dv);
       setOpen(false);
-      setName(''); setVersion('v1'); setDescription(''); setFiles([]);
+      resetForm();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('error_occurred'));
     } finally {
@@ -100,10 +123,23 @@ export function CreateDatasetVersionModal({ projectId, onCreated }: Props) {
             onFilesChange={setFiles}
           />
 
+          {progress && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between text-xs text-zinc-500">
+                <span>Đang tải lên...</span>
+                <span className="tabular-nums">{progress.uploaded} / {progress.total} files</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((progress.uploaded / progress.total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {error && (
-            <p className="text-xs text-red-400">
-              {error}
-            </p>
+            <p className="text-xs text-red-400">{error}</p>
           )}
 
           <div className="flex justify-end gap-3 pt-2">

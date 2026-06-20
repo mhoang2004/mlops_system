@@ -246,3 +246,24 @@ class BaseTrainer(ABC, Generic[TP, IP]):
         dict of metric_name → float  (e.g. {"mAP50": 0.72, "precision": 0.85})
         """
         ...
+
+    @abstractmethod
+    def visualize(
+        self,
+        image_paths: list[Path],
+        output_dir: Path,
+        confidence: float = 0.5,
+    ) -> list[dict]:
+        """
+        Run inference on each image, draw bounding boxes, save annotated images to output_dir.
+
+        Returns list of per-image dicts:
+            {
+                "filename":        str,   # original filename
+                "output_filename": str,   # annotated image filename in output_dir
+                "detections": [
+                    {"box": [x1,y1,x2,y2], "score": float, "class_id": int, "class_name": str}
+                ]
+            }
+        """
+        ...

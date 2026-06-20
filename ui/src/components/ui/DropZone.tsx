@@ -86,31 +86,42 @@ export function DropZone({ onFilesChange, accept, multiple = true, label, hint, 
       </div>
 
       {files.length > 0 && (
-        <ul className="flex flex-col gap-1 max-h-40 overflow-y-auto">
-          {files.map((f, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700/80 transition-colors">
-              <div className="flex items-center gap-1.5 min-w-0">
-                {getIcon(f)}
-                <span className="text-xs text-zinc-400 truncate">{f.name}</span>
-                <span className="text-[10px] text-zinc-600 shrink-0 tabular-nums">{formatSize(f.size)}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeFile(i)}
-                className="text-zinc-700 hover:text-red-400 transition-colors shrink-0"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <>
+          <ul className="flex flex-col gap-1">
+            {files.slice(0, 5).map((f, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700/80 transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {getIcon(f)}
+                  <span className="text-xs text-zinc-400 truncate">{f.name}</span>
+                  <span className="text-[10px] text-zinc-600 shrink-0 tabular-nums">{formatSize(f.size)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </li>
+            ))}
+          </ul>
 
-      {files.length > 0 && (
-        <p className="flex items-center gap-1 text-[11px] text-zinc-600">
-          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-          {files.length} file đã chọn
-        </p>
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1 text-[11px] text-zinc-600">
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              {files.length > 5
+                ? `${files.length} files đã chọn (hiển thị 5 đầu tiên)`
+                : `${files.length} file đã chọn`}
+            </p>
+            <button
+              type="button"
+              onClick={() => onFilesChange([])}
+              className="text-[11px] text-zinc-700 hover:text-red-400 transition-colors"
+            >
+              Xóa tất cả
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

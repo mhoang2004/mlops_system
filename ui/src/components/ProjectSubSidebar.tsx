@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Database, Cpu, FlaskConical, CheckSquare,
-  LineChart, ChevronLeft, Zap, Box,
+  LineChart, ChevronLeft, Zap, Box, ScanSearch,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -64,6 +64,7 @@ export function ProjectSubSidebar({ projectId, projectName }: Props) {
         <SideNavItem to={`${base}/experiments`} icon={FlaskConical}>Experiments</SideNavItem>
         <SideNavItem to={`${base}/tasks`}       icon={CheckSquare}>Tasks</SideNavItem>
         <SideNavItem to={`${base}/evaluation`}  icon={LineChart}>Evaluation</SideNavItem>
+        <SideNavItem to={`${base}/visualize`}   icon={ScanSearch}>Visualize</SideNavItem>
 
       </nav>
     </aside>

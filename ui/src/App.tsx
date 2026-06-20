@@ -12,6 +12,7 @@ import { ExperimentsPage } from './pages/project/ExperimentsPage';
 import { ModelsPage } from './pages/project/ModelsPage';
 import { TasksPage } from './pages/project/TasksPage';
 import { EvaluationPage } from './pages/project/EvaluationPage';
+import { VisualizationsPage } from './pages/project/VisualizationsPage';
 import { LangProvider } from './contexts/LangContext';
 
 function AppShell() {
@@ -40,6 +41,7 @@ function AppShell() {
             <Route path="experiments"     element={<ExperimentsPage />} />
             <Route path="tasks"           element={<TasksPage />} />
             <Route path="evaluation"      element={<EvaluationPage />} />
+            <Route path="visualize"       element={<VisualizationsPage />} />
           </Route>
         </Routes>
       </div>
