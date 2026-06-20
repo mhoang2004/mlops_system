@@ -136,6 +136,47 @@ def list_annotations(db: Session, dv_id: int) -> dict:
     }
 
 
+def download_dataset(db: Session, dv_id: int):
+    """Stream a zip archive containing all files for this dataset version."""
+    import io
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    dv = get_version(db, dv_id)
+    client = get_minio_client()
+    storage_path = dv.storage_path
+
+    def generate():
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            try:
+                objects = list(client.list_objects(BUCKET_NAME, prefix=storage_path, recursive=True))
+            except Exception:
+                objects = []
+            for obj in objects:
+                try:
+                    response = client.get_object(BUCKET_NAME, obj.object_name)
+                    arcname = obj.object_name[len(storage_path):]
+                    zf.writestr(arcname, response.read())
+                    response.close()
+                    response.release_conn()
+                except Exception:
+                    pass
+        buf.seek(0)
+        while True:
+            chunk = buf.read(65536)
+            if not chunk:
+                break
+            yield chunk
+
+    zip_name = f"{dv.name}_{dv.version}.zip"
+    return StreamingResponse(
+        generate(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+    )
+
+
 def delete_labels(db: Session, dv_id: int) -> DatasetVersion:
     """
     Remove all annotation files from MinIO and reset label_type to 'unlabeled'.

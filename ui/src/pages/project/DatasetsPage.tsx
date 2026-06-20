@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Calendar, Trash2, Loader2, AlertCircle, FolderOpen, ChevronRight } from 'lucide-react';
+import { Database, Calendar, Trash2, Loader2, AlertCircle, FolderOpen, ChevronRight, Download } from 'lucide-react';
 import { api, type DatasetVersion } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -21,6 +21,7 @@ export function DatasetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -34,6 +35,18 @@ export function DatasetsPage() {
 
   const handleLabelsUploaded = (updated: DatasetVersion) =>
     setVersions((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+
+  const handleDownload = (dvId: number) => {
+    setDownloadingId(dvId);
+    const url = api.datasetVersions.downloadUrl(dvId);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => setDownloadingId(null), 2000);
+  };
 
   const handleDelete = async (dvId: number) => {
     if (!confirm(t('dv_confirm_delete'))) return;
@@ -142,6 +155,17 @@ export function DatasetsPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <UploadLabelsModal datasetVersion={dv} onUploaded={handleLabelsUploaded} />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={downloadingId === dv.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Download className="w-3.5 h-3.5" />}
+                      onClick={() => handleDownload(dv.id)}
+                      disabled={downloadingId === dv.id}
+                    >
+                      {t('dv_download')}
+                    </Button>
                     <Button
                       size="sm"
                       variant="danger"

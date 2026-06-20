@@ -27,4 +27,4 @@ ultralytics>=8.2.0
 # Segmentation (Mamba-UNet)
 albumentations>=1.3.0
 einops>=0.7.0
-mamba-ssm>=1.2.0; sys_platform == "linux"  # CUDA-only, skip on non-Linux/CPU
+# mamba-ssm is CUDA-only; installed separately in Dockerfile.gpu

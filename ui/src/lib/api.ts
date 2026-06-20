@@ -73,6 +73,7 @@ export const api = {
     },
     listImages: (id: number, offset = 0, limit = 4) =>
       request<ImageListResponse>(`/dataset-versions/${id}/images?offset=${offset}&limit=${limit}`),
+    downloadUrl: (id: number) => `${BASE_URL}/dataset-versions/${id}/download`,
   },
 
   // ── Checkpoints ────────────────────────────────────────────────────────────
@@ -86,6 +87,8 @@ export const api = {
     upload: (form: FormData) =>
       request<Checkpoint>('/checkpoints/', { method: 'POST', body: form }),
     delete: (id: number) => request<void>(`/checkpoints/${id}`, { method: 'DELETE' }),
+    getDownloadUrl: (id: number) =>
+      request<{ url: string; filename: string; expires_seconds: number }>(`/checkpoints/${id}/download-url`),
   },
 
   // ── Trainers ───────────────────────────────────────────────────────────────

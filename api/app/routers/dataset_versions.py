@@ -97,6 +97,12 @@ def list_annotations(dv_id: int, db: Session = Depends(get_db)):
     return service.list_annotations(db, dv_id)
 
 
+@router.get("/{dv_id}/download")
+def download_dataset(dv_id: int, db: Session = Depends(get_db)):
+    """Download all files in a dataset version as a zip archive."""
+    return service.download_dataset(db, dv_id)
+
+
 @router.delete("/{dv_id}/labels", status_code=200)
 def delete_labels(dv_id: int, db: Session = Depends(get_db)):
     """Remove all annotation files and reset label_type to 'unlabeled'."""

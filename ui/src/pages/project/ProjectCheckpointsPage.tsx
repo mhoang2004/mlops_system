@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Trash2, Loader2, AlertCircle, Calendar, BarChart3, Plus, Upload } from 'lucide-react';
+import { Cpu, Trash2, Loader2, AlertCircle, Calendar, BarChart3, Plus, Upload, Download } from 'lucide-react';
 import { api, type Checkpoint } from '../../lib/api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -83,6 +83,7 @@ export function ProjectCheckpointsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -93,6 +94,22 @@ export function ProjectCheckpointsPage() {
   }, [projectId]);
 
   const handleCreated = (c: Checkpoint) => setCheckpoints((prev) => [c, ...prev]);
+
+  const handleDownload = async (ckptId: number) => {
+    setDownloadingId(ckptId);
+    try {
+      const { url, filename } = await api.checkpoints.getDownloadUrl(ckptId);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch { alert(t('error_occurred')); }
+    finally { setDownloadingId(null); }
+  };
 
   const handleDelete = async (ckptId: number) => {
     if (!confirm(t('ckpt_delete_confirm'))) return;
@@ -189,7 +206,18 @@ export function ProjectCheckpointsPage() {
                     </p>
                   </div>
 
-                  <div className="shrink-0 pt-0.5">
+                  <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={downloadingId === ck.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Download className="w-3.5 h-3.5" />}
+                      onClick={() => handleDownload(ck.id)}
+                      disabled={downloadingId === ck.id}
+                    >
+                      {t('ckpt_download')}
+                    </Button>
                     <Button
                       size="sm"
                       variant="danger"

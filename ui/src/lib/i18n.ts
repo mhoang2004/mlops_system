@@ -50,6 +50,7 @@ export const translations = {
     dv_delete: 'Xóa',
     dv_confirm_delete: 'Bạn có chắc muốn xóa dataset version này?',
     dv_info: 'Thông tin dataset',
+    dv_download: 'Tải xuống',
 
     // Checkpoints
     ckpt_title: 'Checkpoints',
@@ -65,6 +66,7 @@ export const translations = {
     ckpt_empty: 'Chưa có checkpoint nào',
     ckpt_empty_hint: 'Upload pre-trained checkpoint để bắt đầu',
     ckpt_delete_confirm: 'Xóa checkpoint này?',
+    ckpt_download: 'Tải xuống',
 
     // Create project modal
     cp_title: 'Tạo Project mới',
@@ -259,6 +261,7 @@ export const translations = {
     dv_delete: 'Delete',
     dv_confirm_delete: 'Are you sure you want to delete this dataset version?',
     dv_info: 'Dataset info',
+    dv_download: 'Download',
 
     // Checkpoints
     ckpt_title: 'Checkpoints',
@@ -274,6 +277,7 @@ export const translations = {
     ckpt_empty: 'No checkpoints yet',
     ckpt_empty_hint: 'Upload a pre-trained checkpoint to get started',
     ckpt_delete_confirm: 'Delete this checkpoint?',
+    ckpt_download: 'Download',
 
     // Create project modal
     cp_title: 'Create New Project',
