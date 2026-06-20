@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ScanSearch, Plus, Trash2, Loader2, AlertCircle, Calendar,
-  ChevronDown, ChevronUp, ImageIcon,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ImageIcon, X,
 } from 'lucide-react';
 import {
   api,
@@ -255,17 +255,153 @@ function CreateVizModal({ projectId, onCreated }: { projectId: number; onCreated
   );
 }
 
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+
+function Lightbox({
+  items,
+  index,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  items: VisualizationResultImage[];
+  index: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const { t } = useLang();
+  const item = items[index];
+  const [showDetections, setShowDetections] = useState(false);
+
+  useEffect(() => {
+    setShowDetections(false);
+  }, [index]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') onNext();
+      if (e.key === 'ArrowLeft') onPrev();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose, onNext, onPrev]);
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col" onClick={onClose}>
+      {/* Top bar */}
+      <div
+        className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-zinc-800/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="text-sm text-zinc-300 truncate max-w-xs">{item.filename}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-zinc-600">{index + 1} / {items.length}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+            disabled={index === 0}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onNext(); }}
+            disabled={index === items.length - 1}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Image area */}
+      <div
+        className="flex-1 flex items-center justify-center p-4 min-h-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {item.output_url ? (
+          <img
+            src={item.output_url}
+            alt={item.filename}
+            className="max-w-full max-h-full object-contain select-none"
+            draggable={false}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-zinc-600">
+            <ImageIcon className="w-10 h-10" />
+            <span className="text-sm">{item.filename}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Detections panel */}
+      <div
+        className="shrink-0 border-t border-zinc-800/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setShowDetections((p) => !p)}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 transition-colors"
+        >
+          <span>{item.detections.length} detection{item.detections.length !== 1 ? 's' : ''}</span>
+          {showDetections ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
+
+        {showDetections && (
+          <div className="max-h-40 overflow-y-auto border-t border-zinc-800/60">
+            {item.detections.length === 0 ? (
+              <p className="text-xs text-zinc-600 text-center py-4 italic">{t('viz_no_detections')}</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-zinc-900/60 border-b border-zinc-800">
+                    <th className="text-left px-4 py-2 text-zinc-500 font-medium">Class</th>
+                    <th className="text-right px-4 py-2 text-zinc-500 font-medium">Score</th>
+                    <th className="text-right px-4 py-2 text-zinc-500 font-medium">Box (xyxy)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {item.detections.map((d, j) => (
+                    <tr key={j} className="border-b border-zinc-800/40 last:border-0">
+                      <td className="px-4 py-1.5 text-zinc-200">{d.class_name}</td>
+                      <td className="px-4 py-1.5 text-right text-emerald-400 font-mono">
+                        {(d.score * 100).toFixed(1)}%
+                      </td>
+                      <td className="px-4 py-1.5 text-right text-zinc-500 font-mono text-[10px]">
+                        {d.box.map((v) => v.toFixed(0)).join(', ')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Result modal ──────────────────────────────────────────────────────────────
 
 function ResultModal({ vizId, open, onClose }: { vizId: number; open: boolean; onClose: () => void }) {
   const { t } = useLang();
-  const [items, setItems]   = useState<VisualizationResultImage[]>([]);
+  const [items, setItems]     = useState<VisualizationResultImage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setItems([]);
+    setLightboxIdx(null);
     setLoading(true);
     api.visualizations.resultImages(vizId)
       .then(setItems)
@@ -273,91 +409,61 @@ function ResultModal({ vizId, open, onClose }: { vizId: number; open: boolean; o
       .finally(() => setLoading(false));
   }, [open, vizId]);
 
-  const toggle = (i: number) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-
   return (
-    <Modal open={open} onClose={onClose} title={t('viz_results')} className="max-w-4xl">
-      {loading && (
-        <div className="flex justify-center py-10">
-          <Loader2 className="w-5 h-5 animate-spin text-violet-500/50" />
-        </div>
-      )}
+    <>
+      <Modal open={open} onClose={onClose} title={t('viz_results')} className="max-w-4xl">
+        {loading && (
+          <div className="flex justify-center py-10">
+            <Loader2 className="w-5 h-5 animate-spin text-violet-500/50" />
+          </div>
+        )}
 
-      {!loading && items.length === 0 && (
-        <p className="text-sm text-zinc-600 text-center py-10">{t('viz_no_results')}</p>
-      )}
+        {!loading && items.length === 0 && (
+          <p className="text-sm text-zinc-600 text-center py-10">{t('viz_no_results')}</p>
+        )}
 
-      {!loading && items.length > 0 && (
-        <div className="flex flex-col gap-5 max-h-[75vh] overflow-y-auto pr-1">
-          {items.map((item, i) => (
-            <div key={i} className="border border-zinc-800 rounded-xl overflow-hidden">
-              {/* Annotated image */}
-              {item.output_url ? (
-                <img
-                  src={item.output_url}
-                  alt={item.filename}
-                  className="w-full object-contain max-h-[420px] bg-zinc-950"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-32 bg-zinc-900/60 text-zinc-600 text-sm">
-                  {item.filename}
-                </div>
-              )}
-
-              {/* Detections */}
-              <div className="p-3 bg-zinc-900/40">
-                <button
-                  type="button"
-                  onClick={() => toggle(i)}
-                  className="flex items-center justify-between w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  <span className="font-medium">{item.filename}</span>
-                  <span className="flex items-center gap-1.5">
-                    {item.detections.length} detection{item.detections.length !== 1 ? 's' : ''}
-                    {expanded.has(i) ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </span>
-                </button>
-
-                {expanded.has(i) && item.detections.length > 0 && (
-                  <div className="mt-2 overflow-hidden rounded-lg border border-zinc-800">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-zinc-800 bg-zinc-900/60">
-                          <th className="text-left px-3 py-1.5 text-zinc-500 font-medium">Class</th>
-                          <th className="text-right px-3 py-1.5 text-zinc-500 font-medium">Score</th>
-                          <th className="text-right px-3 py-1.5 text-zinc-500 font-medium">Box (xyxy)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {item.detections.map((d, j) => (
-                          <tr key={j} className="border-b border-zinc-800/50 last:border-0">
-                            <td className="px-3 py-1.5 text-zinc-200">{d.class_name}</td>
-                            <td className="px-3 py-1.5 text-right text-emerald-400 font-mono">
-                              {(d.score * 100).toFixed(1)}%
-                            </td>
-                            <td className="px-3 py-1.5 text-right text-zinc-500 font-mono text-[10px]">
-                              {d.box.map((v) => v.toFixed(0)).join(', ')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+        {!loading && items.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-[65vh] overflow-y-auto p-0.5">
+            {items.map((item, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightboxIdx(i)}
+                className="relative aspect-square rounded-lg overflow-hidden border border-zinc-800 hover:border-violet-500/50 transition-all duration-150 group focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              >
+                {item.output_url ? (
+                  <img
+                    src={item.output_url}
+                    alt={item.filename}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                    <ImageIcon className="w-6 h-6 text-zinc-600" />
                   </div>
                 )}
-                {expanded.has(i) && item.detections.length === 0 && (
-                  <p className="text-xs text-zinc-600 mt-2 italic">Không có detection nào</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-150" />
+                <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-150">
+                  <p className="text-[10px] text-white truncate">{item.filename}</p>
+                  <p className="text-[10px] text-zinc-300">{item.detections.length} det.</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {lightboxIdx !== null && (
+        <Lightbox
+          items={items}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onPrev={() => setLightboxIdx((i) => Math.max(0, (i ?? 0) - 1))}
+          onNext={() => setLightboxIdx((i) => Math.min(items.length - 1, (i ?? 0) + 1))}
+        />
       )}
-    </Modal>
+    </>
   );
 }
 

@@ -1,16 +1,14 @@
 # =============================================================================
-# Training Worker — CPU build
+# Training Worker — GPU build (CUDA 12.1)
 #
-# Use this when you don't have an NVIDIA GPU or the NVIDIA Container Runtime.
-# Training will run on CPU (slower, but works anywhere).
+# Yêu cầu: NVIDIA Container Toolkit đã cài trên host.
+# Dùng file này cho máy GPU remote (docker-compose.worker.yml).
 #
-# docker compose --profile cpu up worker-cpu
+# docker compose -f docker-compose.worker.yml --env-file .env.worker up --build -d
 # =============================================================================
 FROM python:3.9-slim
 
 # System deps
-# libgomp1 : OpenMP required by PyTorch CPU kernels
-# curl     : healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgomp1 \
         curl \
@@ -19,26 +17,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install PyTorch CPU wheels first (large layer, cached separately)
+# Install PyTorch CUDA 12.1 wheels (precompiled — không cần CUDA toolkit trên host khi build)
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
-        torch==2.4.0+cpu \
-        torchvision==0.19.0+cpu \
-        --index-url https://download.pytorch.org/whl/cpu
+        torch==2.4.0 \
+        torchvision==0.19.0 \
+        --index-url https://download.pytorch.org/whl/cu121
 
 # Install remaining shared deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
-    # ultralytics pulls opencv-python which needs X11 display libs not present in headless containers.
-    # Swap to the headless variant immediately after to avoid libxcb.so.1 import errors.
+    # ultralytics pulls opencv-python which needs X11 libs not present in headless containers.
     && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
     && pip install --no-cache-dir opencv-python-headless
 
 # Pre-download YOLOv8 weights during build so runtime has no internet dependency.
-# Stored in /opt/yolo_weights — outside /app so the volume mount doesn't hide them.
 ENV YOLO_WEIGHTS_DIR=/opt/yolo_weights
-# YOLO_CONFIG_DIR persists to runtime so all ultralytics asset downloads
-# (weights, fonts, settings) go to a directory owned by the worker user.
 ENV YOLO_CONFIG_DIR=/opt/yolo_weights/.ult
 RUN mkdir -p /opt/yolo_weights
 COPY download_weights.py /tmp/download_weights.py
@@ -47,28 +41,18 @@ RUN python /tmp/download_weights.py
 # Application source
 COPY . .
 
-# Python module resolution:
-#   /app          → tasks, celery_app, registry, context/, storage/, sampling/
-#   /app/trainers → allows `from base_trainer import ...` inside yolo_trainer.py
 ENV PYTHONPATH="/app:/app/trainers:/app/models/mamba-unet"
-
-# Working directory for downloaded dataset images / checkpoints
 ENV EXPERIMENT_WORKDIR="/workspace/experiments"
 RUN mkdir -p /workspace/experiments
 
-# Non-root user
 RUN useradd -m -u 1001 worker \
     && chown -R worker:worker /app /workspace /opt/yolo_weights
 USER worker
 
-# Healthcheck — ping the worker process itself
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD celery -A celery_app inspect ping \
         -d "celery@$$HOSTNAME" --timeout 5 > /dev/null 2>&1 || exit 1
 
-# startup.py: waits for API → registers trainers → exec celery worker
-# --concurrency=1  : one training job at a time (CPU memory)
-# --without-gossip : reduces Redis noise in single-worker setups
 CMD ["python", "/app/startup.py", \
      "celery", "-A", "celery_app", "worker", \
      "--loglevel=info", "--concurrency=1", \

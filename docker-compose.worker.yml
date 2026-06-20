@@ -15,7 +15,7 @@ services:
   training-worker:
     build:
       context: ./trainingworker
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.gpu
     container_name: mlops-training-worker
     runtime: nvidia   # yêu cầu: NVIDIA Container Toolkit đã cài trên máy
     volumes:

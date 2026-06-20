@@ -105,17 +105,19 @@ services:
     image: ghcr.io/mlflow/mlflow:latest
     container_name: mlops-mlflow
     ports:
-      - "5000:5000"
+      - "0.0.0.0:5000:5000"
     volumes:
       - mlflow_data:/mlflow
     environment:
       MLFLOW_ENABLE_PROXY_FIX: "true"
+      MLFLOW_FLASK_SERVER_SECRET_KEY: "${MLFLOW_SECRET_KEY:-mlops-dev-secret}"
     command: >
       mlflow server
       --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
+      --gunicorn-opts "--forwarded-allow-ips=* --timeout 120"
     networks:
       - mlops_network
     healthcheck:
