@@ -32,7 +32,7 @@ COPY requirements.txt .
 COPY download_weights.py /tmp/download_weights.py
 RUN pip install --no-cache-dir -r requirements.txt \
     && (pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true) \
-    && pip install --no-cache-dir opencv-python-headless
+    && pip install --no-cache-dir --force-reinstall opencv-python-headless
 
 # Pre-download YOLOv8 weights during build so runtime has no internet dependency.
 # Stored in /opt/yolo_weights — outside /app so the volume mount doesn't hide them.

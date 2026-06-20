@@ -96,6 +96,11 @@ export const api = {
   trainers: {
     list: () => request<Trainer[]>('/trainers/'),
     get: (id: number) => request<Trainer>(`/trainers/${id}`),
+    getDocs: async (key: string): Promise<string> => {
+      const res = await fetch(`${BASE_URL}/trainers/${key}/docs`);
+      if (!res.ok) throw new Error('Docs not found');
+      return res.text();
+    },
   },
 
   // ── ML Models ──────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Brain, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Brain, Loader2, AlertCircle, ChevronDown, ChevronUp, BookOpen, X } from 'lucide-react';
 import { api, type Trainer } from '../lib/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -26,10 +27,145 @@ function SchemaViewer({ schema }: { schema: object }) {
   );
 }
 
+function DocsModal({ trainer, onClose }: { trainer: Trainer; onClose: () => void }) {
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    api.trainers.getDocs(trainer.key)
+      .then(setContent)
+      .catch(() => setError('Không tìm thấy tài liệu cho trainer này.'))
+      .finally(() => setLoading(false));
+  }, [trainer.key]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-6 overflow-y-auto">
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-3xl my-8 bg-[#111113] rounded-xl border border-zinc-800 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_24px_64px_rgba(0,0,0,0.7)]">
+        <div className="absolute inset-x-0 top-0 h-px rounded-t-xl bg-gradient-to-r from-transparent via-white/8 to-transparent pointer-events-none" />
+
+        <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4 border-b border-zinc-800/80">
+          <div className="flex items-center gap-2.5">
+            <BookOpen className="w-4 h-4 text-violet-400" />
+            <h2 className="text-sm font-semibold text-zinc-100">{trainer.name}</h2>
+            <Badge variant="muted">{trainer.key}</Badge>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all duration-150"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-8 py-7">
+          {loading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-5 h-5 animate-spin text-violet-500/50" />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {!loading && !error && (
+            <div className="docs-content">
+              <ReactMarkdown
+                components={{
+                  h1: ({ children }) => (
+                    <h1 className="text-lg font-bold text-zinc-100 mb-1">{children}</h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2 className="text-sm font-semibold text-zinc-200 mt-7 mb-3 pb-2 border-b border-zinc-800">{children}</h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-sm font-semibold text-zinc-300 mt-4 mb-2">{children}</h3>
+                  ),
+                  p: ({ children }) => (
+                    <p className="text-sm text-zinc-400 leading-relaxed mb-3">{children}</p>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="text-zinc-200 font-semibold">{children}</strong>
+                  ),
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">{children}</a>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="text-sm text-zinc-400 leading-relaxed mb-3 space-y-1 list-none pl-0">{children}</ul>
+                  ),
+                  li: ({ children }) => (
+                    <li className="flex gap-2 text-sm text-zinc-400">
+                      <span className="text-violet-500 mt-1.5 shrink-0">·</span>
+                      <span>{children}</span>
+                    </li>
+                  ),
+                  code: ({ className, children, ...props }) => {
+                    const isBlock = className?.includes('language-');
+                    if (isBlock) {
+                      return (
+                        <code className="block text-[11px] text-zinc-300 font-mono bg-zinc-900/60 border border-zinc-800/60 rounded-lg px-4 py-3 overflow-x-auto whitespace-pre">
+                          {children}
+                        </code>
+                      );
+                    }
+                    return (
+                      <code className="text-[11px] text-violet-300 font-mono bg-zinc-800/60 px-1.5 py-0.5 rounded" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  pre: ({ children }) => (
+                    <pre className="mb-4 overflow-x-auto">{children}</pre>
+                  ),
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-2 border-violet-500/40 pl-4 my-3 text-sm text-zinc-500 italic">{children}</blockquote>
+                  ),
+                  hr: () => <hr className="border-zinc-800 my-5" />,
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full text-xs border-collapse">{children}</table>
+                    </div>
+                  ),
+                  thead: ({ children }) => <thead>{children}</thead>,
+                  tbody: ({ children }) => <tbody>{children}</tbody>,
+                  tr: ({ children }) => (
+                    <tr className="border-b border-zinc-800/60">{children}</tr>
+                  ),
+                  th: ({ children }) => (
+                    <th className="text-left text-zinc-400 font-medium px-3 py-2 bg-zinc-900/50">{children}</th>
+                  ),
+                  td: ({ children }) => (
+                    <td className="text-zinc-400 px-3 py-2">{children}</td>
+                  ),
+                }}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
+  const [docsTrainer, setDocsTrainer] = useState<Trainer | null>(null);
 
   useEffect(() => {
     api.trainers.list()
@@ -40,6 +176,10 @@ export function TrainersPage() {
 
   return (
     <div className="flex flex-col gap-12">
+      {docsTrainer && (
+        <DocsModal trainer={docsTrainer} onClose={() => setDocsTrainer(null)} />
+      )}
+
       <div>
         <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Trainers</h1>
         <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
@@ -105,6 +245,14 @@ export function TrainersPage() {
 
                 <SchemaViewer schema={tr.train_params_schema} />
               </div>
+
+              <button
+                onClick={() => setDocsTrainer(tr)}
+                className="shrink-0 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-violet-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-violet-500/8 border border-transparent hover:border-violet-500/20"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Docs
+              </button>
             </Card>
           ))}
         </div>

@@ -29,7 +29,7 @@ COPY requirements.txt .
 COPY download_weights.py /tmp/download_weights.py
 RUN pip install --no-cache-dir -r requirements.txt \
     && (pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true) \
-    && pip install --no-cache-dir opencv-python-headless
+    && pip install --no-cache-dir --force-reinstall opencv-python-headless
 
 # mamba-ssm requires CUDA wheels; install separately so a failure here is visible
 RUN pip install --no-cache-dir 'mamba-ssm>=1.2.0' \

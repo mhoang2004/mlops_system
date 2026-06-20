@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,8 @@ from ..database import get_db
 from ..services import trainers as service
 
 router = APIRouter(prefix="/trainers", tags=["trainers"])
+
+_DOCS_DIR = Path("/app/docs/trainers")
 
 
 class RegisterTrainerRequest(BaseModel):
@@ -31,3 +35,11 @@ def list_trainers(db: Session = Depends(get_db)):
 @router.get("/{trainer_id}")
 def get_trainer(trainer_id: int, db: Session = Depends(get_db)):
     return service.get_trainer(db, trainer_id)
+
+
+@router.get("/{trainer_key}/docs", response_class=PlainTextResponse)
+def get_trainer_docs(trainer_key: str):
+    path = _DOCS_DIR / f"{trainer_key}.md"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Docs not found")
+    return path.read_text(encoding="utf-8")

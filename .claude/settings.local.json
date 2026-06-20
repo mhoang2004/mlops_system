@@ -23,7 +23,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\python\\\\mlops\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(rtk grep *)",
-      "Bash(rtk find *)"
+      "Bash(rtk find *)",
+      "Bash(rtk read *)"
     ]
   }
 }

@@ -18,6 +18,7 @@ services:
     volumes:
       - ./api:/app
       - ./common:/app/common
+      - ./docs/trainers:/app/docs/trainers
     environment:
       <<: *common-env
       POSTGRES_USER:           ${POSTGRES_USER}
