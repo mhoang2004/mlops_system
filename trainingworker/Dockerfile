@@ -27,7 +27,9 @@ RUN pip install --no-cache-dir --upgrade pip \
         --index-url https://download.pytorch.org/whl/cpu
 
 # Install remaining shared deps
+# download_weights.py copied here so any change to it also invalidates the pip cache layer
 COPY requirements.txt .
+COPY download_weights.py /tmp/download_weights.py
 RUN pip install --no-cache-dir -r requirements.txt \
     # ultralytics pulls opencv-python which needs X11 display libs not present in headless containers.
     # Swap to the headless variant immediately after to avoid libxcb.so.1 import errors.
@@ -41,7 +43,6 @@ ENV YOLO_WEIGHTS_DIR=/opt/yolo_weights
 # (weights, fonts, settings) go to a directory owned by the worker user.
 ENV YOLO_CONFIG_DIR=/opt/yolo_weights/.ult
 RUN mkdir -p /opt/yolo_weights
-COPY download_weights.py /tmp/download_weights.py
 RUN python /tmp/download_weights.py
 
 # Application source

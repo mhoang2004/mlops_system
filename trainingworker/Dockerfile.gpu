@@ -26,8 +26,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Install remaining shared deps
 COPY requirements.txt .
+COPY download_weights.py /tmp/download_weights.py
 RUN pip install --no-cache-dir -r requirements.txt \
-    # ultralytics pulls opencv-python which needs X11 libs not present in headless containers.
     && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
     && pip install --no-cache-dir opencv-python-headless
 
@@ -35,7 +35,6 @@ RUN pip install --no-cache-dir -r requirements.txt \
 ENV YOLO_WEIGHTS_DIR=/opt/yolo_weights
 ENV YOLO_CONFIG_DIR=/opt/yolo_weights/.ult
 RUN mkdir -p /opt/yolo_weights
-COPY download_weights.py /tmp/download_weights.py
 RUN python /tmp/download_weights.py
 
 # Application source
