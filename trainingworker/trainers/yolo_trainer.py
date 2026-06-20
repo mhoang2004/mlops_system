@@ -428,7 +428,14 @@ class YoloTrainer(BaseTrainer[YoloTrainParams, YoloInferParams]):
             return {}
         workspace = self.params.run_dir / "eval_tmp"
         data_yaml = self._build_dataset(workspace, [(image_dir, annotation_file)], [])
-        metrics = self._ulm.val(data=str(data_yaml), split="train", verbose=False, workers=0)
+        metrics = self._ulm.val(
+            data=str(data_yaml),
+            split="train",
+            verbose=False,
+            workers=0,
+            project=str(self.params.run_dir),
+            name="val_results",
+        )
         m = metrics.results_dict
         return {
             "mAP50":     round(m.get("metrics/mAP50(B)", 0.0), 4),
