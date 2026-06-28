@@ -21,8 +21,8 @@ def get_project(db: Session, project_id: int) -> Project:
     return project
 
 
-def create_project(db: Session, name: str, labels: Any) -> Project:
-    return repo.create(db, name, labels)
+def create_project(db: Session, name: str, labels: Any, description: Optional[str] = None) -> Project:
+    return repo.create(db, name, labels, description)
 
 
 def update_project(
@@ -30,9 +30,10 @@ def update_project(
     project_id: int,
     name: Optional[str],
     labels: Optional[Any],
+    description: Optional[str] = None,
 ) -> Project:
     project = get_project(db, project_id)
-    return repo.update(db, project, name, labels)
+    return repo.update(db, project, name, labels, description)
 
 
 def delete_project(db: Session, project_id: int) -> None:

@@ -20,6 +20,7 @@ Pillow>=10.0.0
 
 # Experiment tracking
 mlflow>=2.14.0
+psutil>=5.9.0
 
 # Object detection
 ultralytics>=8.2.0

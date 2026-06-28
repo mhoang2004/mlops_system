@@ -169,6 +169,7 @@ def create_experiment(db: Session, payload: dict) -> dict:
 
     job_payload = {
         "experiment_id":    exp.id,
+        "experiment_name":  name,
         "project_id":       project_id,
         "ml_model_id":      ml_model_id,
         "trainer_key":      trainer.key,

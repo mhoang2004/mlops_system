@@ -14,6 +14,7 @@ export function CreateProjectModal({ onCreated }: Props) {
   const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [labelInput, setLabelInput] = useState('');
   const [labels, setLabels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,10 +39,12 @@ export function CreateProjectModal({ onCreated }: Props) {
       const p = await api.projects.create(
         name.trim(),
         labels.map((name) => ({ name })),
+        description.trim() || undefined,
       );
       onCreated(p);
       setOpen(false);
       setName('');
+      setDescription('');
       setLabels([]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('error_occurred'));
@@ -66,6 +69,19 @@ export function CreateProjectModal({ onCreated }: Props) {
             onChange={(e) => setName(e.target.value)}
             error={error}
           />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
+              Mô tả / Quy tắc gán nhãn
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Mô tả project, quy tắc gán nhãn, ghi chú cho annotator..."
+              rows={4}
+              className="w-full rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-200 placeholder:text-zinc-500 px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/40"
+            />
+          </div>
 
           <div className="flex flex-col gap-3">
             <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest">

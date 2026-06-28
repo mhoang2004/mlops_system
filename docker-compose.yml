@@ -37,7 +37,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -62,6 +62,7 @@ services:
       NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}   # void = no GPU; set to "all" for GPU
       WORKER_NAME:  ${WORKER_NAME:-local}
       WORKER_HOST:  ${WORKER_HOST:-host.docker.internal}
+      MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: "true"
     networks:
       - mlops_network
     depends_on:
@@ -118,11 +119,11 @@ services:
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
-      --gunicorn-opts "--forwarded-allow-ips=* --timeout 120"
+      --allowed-hosts '*'
     networks:
       - mlops_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
       retries: 5

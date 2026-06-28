@@ -12,18 +12,20 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 class ProjectCreate(BaseModel):
-    name:   str
-    labels: List[Dict[str, Any]] = []
+    name:        str
+    labels:      List[Dict[str, Any]] = []
+    description: Optional[str]        = None
 
 
 class ProjectUpdate(BaseModel):
-    name:   Optional[str]              = None
-    labels: Optional[List[Dict[str, Any]]] = None
+    name:        Optional[str]               = None
+    labels:      Optional[List[Dict[str, Any]]] = None
+    description: Optional[str]               = None
 
 
 @router.post("/", status_code=201)
 def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
-    return service.create_project(db, body.name, body.labels)
+    return service.create_project(db, body.name, body.labels, body.description)
 
 
 @router.get("/")
@@ -38,7 +40,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{project_id}")
 def update_project(project_id: int, body: ProjectUpdate, db: Session = Depends(get_db)):
-    return service.update_project(db, project_id, body.name, body.labels)
+    return service.update_project(db, project_id, body.name, body.labels, body.description)
 
 
 @router.delete("/{project_id}", status_code=204)

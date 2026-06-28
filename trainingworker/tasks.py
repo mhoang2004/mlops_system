@@ -72,6 +72,7 @@ def run_experiment(self: Task, payload: dict) -> dict:
     if MLFLOW_AVAILABLE:
         try:
             mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
+            mlflow.enable_system_metrics_logging()
             mlflow.set_experiment(f"project_{project_id}")
             mlflow.start_run(run_name=f"exp_{exp_id} — {payload.get('experiment_name', '')}")
             mlflow.log_params({k: str(v)[:250] for k, v in payload["train_params"].items()})
@@ -81,10 +82,13 @@ def run_experiment(self: Task, payload: dict) -> dict:
                 "project_id":    str(project_id),
             })
             mlflow_active = True
-            run_id = mlflow.active_run().info.run_id
-            logger.info("MLflow run started: run_id=%s for experiment %d", run_id, exp_id)
-            # Persist run_id so UI can deep-link to this run
-            reporter._update_status("PENDING", mlflow_run_id=run_id)
+            active_run = mlflow.active_run()
+            run_id = active_run.info.run_id
+            mlflow_experiment_id = active_run.info.experiment_id
+            # Store as "{experiment_id}/runs/{run_id}" for correct deep-link in MLflow 2.x UI
+            mlflow_path = f"{mlflow_experiment_id}/runs/{run_id}"
+            logger.info("MLflow run started: path=%s for experiment %d", mlflow_path, exp_id)
+            reporter._update_status("PENDING", mlflow_run_id=mlflow_path)
         except Exception as e:
             logger.warning("MLflow setup failed: %s", e)
 

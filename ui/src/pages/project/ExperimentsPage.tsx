@@ -21,6 +21,14 @@ import { useLang } from '../../contexts/LangContext';
 
 const MLFLOW_URL = (import.meta.env.VITE_MLFLOW_URL as string | undefined) ?? 'http://localhost:5000';
 
+// mlflow_run_id có 2 format:
+// - Mới (sau fix): "{mlflow_experiment_id}/runs/{run_uuid}"  → /#/experiments/{value}
+// - Cũ (trước fix): chỉ là run UUID                        → fallback về trang chủ MLflow
+const buildMlflowRunUrl = (runId: string) =>
+  runId.includes('/runs/')
+    ? `${MLFLOW_URL}/#/experiments/${runId}`
+    : MLFLOW_URL;
+
 // ── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS_BADGE: Record<ExperimentStatus, 'muted' | 'info' | 'default' | 'success' | 'warning'> = {
@@ -447,7 +455,7 @@ function DetailModal({
 
           {exp.mlflow_run_id && (
             <a
-              href={`${MLFLOW_URL}/#/runs/${exp.mlflow_run_id}`}
+              href={buildMlflowRunUrl(exp.mlflow_run_id)}
               target="_blank"
               rel="noopener noreferrer"
               className="self-start"
@@ -682,7 +690,7 @@ function ExperimentCard({
         </Button>
         {exp.mlflow_run_id && (
           <a
-            href={`${MLFLOW_URL}/#/runs/${exp.mlflow_run_id}`}
+            href={buildMlflowRunUrl(exp.mlflow_run_id)}
             target="_blank"
             rel="noopener noreferrer"
           >

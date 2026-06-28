@@ -21,6 +21,7 @@ export interface Label {
 export interface Project {
   id: number;
   name: string;
+  description: string | null;
   labels: Label[];
   created_at: string;
   updated_at: string;
@@ -30,11 +31,17 @@ export const api = {
   projects: {
     list: () => request<Project[]>('/projects/'),
     get: (id: number) => request<Project>(`/projects/${id}`),
-    create: (name: string, labels: Label[]) =>
+    create: (name: string, labels: Label[], description?: string) =>
       request<Project>('/projects/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, labels }),
+        body: JSON.stringify({ name, labels, description }),
+      }),
+    update: (id: number, body: { name?: string; labels?: Label[]; description?: string }) =>
+      request<Project>(`/projects/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       }),
   },
 
